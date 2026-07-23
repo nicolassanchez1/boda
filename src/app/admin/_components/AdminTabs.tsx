@@ -15,7 +15,7 @@ export default function AdminTabs() {
   const pathname = usePathname();
   return (
     <nav
-      className="flex gap-6 md:gap-10 overflow-x-auto -mb-px pt-2"
+      className="flex gap-5 sm:gap-10 overflow-x-auto -mb-px pt-2 snap-x snap-mandatory scrollbar-none"
       aria-label="Secciones"
     >
       {TABS.map((t) => {
@@ -26,16 +26,16 @@ export default function AdminTabs() {
             key={t.href}
             href={t.href}
             className={clsx(
-              'group relative pb-4 whitespace-nowrap transition-colors',
+              'group relative pb-4 whitespace-nowrap transition-colors snap-start shrink-0',
               active ? 'text-ink' : 'text-ink-muted hover:text-ink-soft',
             )}
           >
-            <span className="smallcaps mr-2 text-[0.6rem] opacity-70 align-middle">
+            <span className="smallcaps mr-1.5 sm:mr-2 text-[0.55rem] sm:text-[0.6rem] opacity-70 align-middle">
               {t.number}
             </span>
             <span
               className={clsx(
-                'font-display text-xl md:text-2xl',
+                'font-display text-lg sm:text-xl md:text-2xl',
                 active && 'italic text-terracotta-dark',
               )}
             >

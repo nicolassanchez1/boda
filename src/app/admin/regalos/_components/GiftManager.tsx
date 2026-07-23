@@ -136,15 +136,15 @@ export function List({
     <>
       {/* Toolbar */}
       <div className="bg-white rounded-2xl shadow-soft p-3 mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre…"
+            placeholder="Buscar…"
             aria-label="Buscar regalos"
-            className="w-full pl-10 pr-4 py-2 bg-ivory-50 border border-ink/10 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta/40"
+            className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-ivory-50 border border-ink/10 rounded-full text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta/40"
           />
         </div>
         <FilterChips current={filter} onChange={setFilter} counts={counts} />
@@ -165,7 +165,7 @@ export function List({
                 count={reserved.length}
                 accent="sage"
               />
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {reserved.map((g) => (
                   <GiftCard
                     key={g.id}
@@ -192,7 +192,7 @@ export function List({
                 count={available.length}
                 accent="terracotta"
               />
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {available.map((g) => (
                   <GiftCard
                     key={g.id}
@@ -534,7 +534,7 @@ function FilterChips({
     { key: 'hidden', label: 'Ocultos', count: counts.hidden },
   ];
   return (
-    <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Filtrar regalos">
+    <div className="-mx-1 flex gap-1 overflow-x-auto snap-x snap-mandatory scrollbar-none" role="tablist" aria-label="Filtrar regalos">
       {items.map((it) => (
         <button
           key={it.key}
@@ -543,7 +543,7 @@ function FilterChips({
           aria-selected={current === it.key}
           onClick={() => onChange(it.key)}
           className={[
-            'cursor-pointer px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors',
+            'cursor-pointer px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors shrink-0 snap-start',
             current === it.key
               ? 'bg-ink text-white'
               : 'bg-ivory-100 text-ink-muted hover:text-ink hover:bg-ivory-200',
@@ -740,7 +740,7 @@ function ModalShell({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
+      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -752,7 +752,7 @@ function ModalShell({
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
         className={[
-          'w-full bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90vh] overflow-y-auto',
+          'modal-mobile-bottom w-full bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90vh] overflow-y-auto',
           wide ? 'max-w-xl' : 'max-w-lg',
         ].join(' ')}
       >

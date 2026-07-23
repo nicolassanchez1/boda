@@ -46,14 +46,14 @@ export default async function InvitadosPage({ searchParams }: { searchParams: Se
   return (
     <div className="space-y-6">
       {/* Stats header */}
-      <header className="flex items-end justify-between flex-wrap gap-4">
-        <div>
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
           <p className="eyebrow text-terracotta">Invitados</p>
-          <h1 className="display-xl text-4xl md:text-5xl mt-1">
+          <h1 className="display-xl text-3xl sm:text-4xl md:text-5xl mt-1 truncate">
             {stats.total} <span className="text-ink-muted">{stats.total === 1 ? 'invitación' : 'invitaciones'}</span>
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <BulkCreateForm />
           <CreateInvitationForm />
         </div>
@@ -108,16 +108,16 @@ function StatsRow({
         <div
           key={it.label}
           className={[
-            'rounded-2xl p-5 shadow-soft transition-shadow hover:shadow-lift',
+            'rounded-2xl p-4 sm:p-5 shadow-soft transition-shadow hover:shadow-lift min-w-0',
             it.accent ? 'bg-terracotta text-white' : 'bg-white',
           ].join(' ')}
         >
-          <div className={['text-[0.65rem] tracking-[0.25em] uppercase font-medium', it.accent ? 'opacity-80' : 'text-ink-muted'].join(' ')}>
+          <div className={['text-[0.6rem] sm:text-[0.65rem] tracking-[0.2em] sm:tracking-[0.25em] uppercase font-medium leading-tight', it.accent ? 'opacity-80' : 'text-ink-muted'].join(' ')}>
             {it.label}
           </div>
-          <div className="display-xl text-4xl mt-1">{it.value}</div>
+          <div className="display-xl text-3xl sm:text-4xl mt-1 truncate">{it.value}</div>
           {it.sub && (
-            <div className={['text-xs mt-1', it.accent ? 'opacity-80' : 'text-ink-muted'].join(' ')}>
+            <div className={['text-[0.7rem] sm:text-xs mt-1 truncate', it.accent ? 'opacity-80' : 'text-ink-muted'].join(' ')}>
               {it.sub}
             </div>
           )}

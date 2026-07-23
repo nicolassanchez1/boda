@@ -209,3 +209,18 @@ select {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
 }
+
+/* Hide horizontal scrollbar visually but keep it functional — used for
+   horizontally-scrolling chip rows and tab bars on mobile. */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Safari + Chrome */
+}
+
+/* Lock scroll inside full-screen modals so the page doesn't bounce. */
+.modal-scroll-lock {
+  overscroll-behavior: contain;
+}

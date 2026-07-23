@@ -13,7 +13,7 @@ const STATUS_CHIPS: { key: string; label: string; extra?: string }[] = [
 
 export default function FilterBar({ current }: { current: Filters }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex flex-nowrap sm:flex-wrap gap-2 overflow-x-auto sm:overflow-visible snap-x snap-mandatory scrollbar-none">
       {STATUS_CHIPS.map((chip) => {
         const params = new URLSearchParams();
         if (chip.key === 'never') {
@@ -34,7 +34,7 @@ export default function FilterBar({ current }: { current: Filters }) {
             key={chip.label}
             href={href}
             className={clsx(
-              'text-sm px-4 py-2 rounded-full border transition-colors',
+              'text-sm px-4 py-2 rounded-full border transition-colors shrink-0 snap-start',
               isActive
                 ? 'bg-ink text-white border-ink'
                 : 'bg-white border-ink/15 text-ink-soft hover:text-ink hover:border-ink/30',

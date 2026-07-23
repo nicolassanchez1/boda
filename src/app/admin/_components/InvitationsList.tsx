@@ -117,7 +117,7 @@ export default function InvitationsList({
     <div className="space-y-3">
       {/* Search + sort toolbar */}
       <div className="bg-white rounded-2xl shadow-soft p-3 flex flex-col sm:flex-row gap-2 sm:items-center">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none">
             <circle cx="11" cy="11" r="7" />
             <path d="M20 20 L16 16" />
@@ -126,16 +126,16 @@ export default function InvitationsList({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, teléfono o notas…"
+            placeholder="Buscar…"
             aria-label="Buscar invitados"
-            className="w-full pl-10 pr-4 py-2 bg-ivory-50 border border-ink/10 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta/40"
+            className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-ivory-50 border border-ink/10 rounded-full text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta/40"
           />
         </div>
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
           aria-label="Ordenar"
-          className="cursor-pointer px-3 py-2 bg-ivory-50 border border-ink/10 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+          className="cursor-pointer px-4 py-2.5 sm:py-2 bg-ivory-50 border border-ink/10 rounded-full text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40"
         >
           <option value="status">Prioridad</option>
           <option value="recent">Más recientes</option>
@@ -253,7 +253,7 @@ function BulkBar({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.2 }}
-        className="sticky top-20 z-20 bg-ink text-white rounded-2xl shadow-lift px-4 py-3 flex flex-wrap items-center gap-3"
+        className="sticky top-[5.5rem] sm:top-20 z-20 bg-ink text-white rounded-2xl shadow-lift px-4 py-3 flex flex-wrap items-center gap-3"
       >
         <span className="font-medium">
           {count} {count === 1 ? 'seleccionado' : 'seleccionados'}
@@ -542,7 +542,7 @@ function InvitationCard({
               onClick={onToggleExpanded}
               aria-label={isExpanded ? 'Ocultar detalles' : 'Ver detalles'}
               aria-expanded={isExpanded}
-              className="cursor-pointer w-10 h-10 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
+              className="cursor-pointer w-11 h-11 sm:w-10 sm:h-10 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
             >
               <motion.span
                 animate={{ rotate: isExpanded ? 180 : 0 }}
@@ -561,7 +561,7 @@ function InvitationCard({
                 aria-label="Más acciones"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className="cursor-pointer w-10 h-10 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
+                className="cursor-pointer w-11 h-11 sm:w-10 sm:h-10 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
               >
                 <DotsIcon className="w-4 h-4" />
               </button>
@@ -668,8 +668,8 @@ function Checkbox({
   onChange: () => void;
   ariaLabel: string;
 }) {
-  // Visible square is 16px. The button is 28×28 (tap target ≥ 44px area via
-  // visual padding from neighbours). Keeps the row feeling light.
+  // Tap target is 44×44 on mobile (Apple HIG) and 28×28 on desktop where
+  // density matters more. Visible square stays 16px in both cases.
   return (
     <button
       type="button"
@@ -680,7 +680,7 @@ function Checkbox({
         e.stopPropagation();
         onChange();
       }}
-      className="cursor-pointer w-7 h-7 rounded-md flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 transition-colors"
+      className="cursor-pointer w-11 h-11 sm:w-7 sm:h-7 rounded-md flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 transition-colors"
       style={{
         color: checked || indeterminate ? 'rgb(184 92 56)' : 'rgb(122 111 100 / 0.4)',
       }}
@@ -755,7 +755,7 @@ function ConfirmModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
+      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
@@ -766,11 +766,11 @@ function ConfirmModal({
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift"
+        className="modal-mobile-bottom w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift"
       >
-        <h2 className="display-xl text-3xl mb-2">{title}</h2>
+        <h2 className="display-xl text-2xl sm:text-3xl mb-2">{title}</h2>
         <p className="text-ink-soft mb-6">{body}</p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
@@ -837,7 +837,7 @@ function EditInvitationModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
+      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -848,7 +848,7 @@ function EditInvitationModal({
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90vh] overflow-y-auto"
+        className="modal-mobile-bottom w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90vh] overflow-y-auto"
       >
         <form onSubmit={submit} className="space-y-4">
           <header>
