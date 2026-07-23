@@ -87,6 +87,59 @@ export default function GiftFormModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // iOS keyboard handling — when the on-screen keyboard opens, the visual
+  // viewport shrinks but the layout viewport (and our modal's `92vh`) does
+  // not, so the modal gets pushed off-screen. We listen to visualViewport
+  // and clamp the modal's max-height to the visible area. We also scroll
+  // the focused field into view with a small top margin so the user can
+  // see what they're typing.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const onResize = () => {
+      // If visualViewport.height is significantly less than window.innerHeight,
+      // the keyboard is open (or the URL bar collapsed). Cap the modal height.
+      const keyboardOpen = window.innerHeight - vv.height > 100;
+      document.documentElement.style.setProperty(
+        '--modal-max-h',
+        keyboardOpen ? `${vv.height - 20}px` : '92vh',
+      );
+    };
+
+    vv.addEventListener('resize', onResize);
+    vv.addEventListener('scroll', onResize);
+    onResize();
+
+    return () => {
+      vv.removeEventListener('resize', onResize);
+      vv.removeEventListener('scroll', onResize);
+      document.documentElement.style.removeProperty('--modal-max-h');
+    };
+  }, []);
+
+  // Scroll the focused field into view when the keyboard appears, so the
+  // user can see what they're typing instead of having the input hidden
+  // behind the keyboard.
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT'
+      ) {
+        // Defer to next frame so the keyboard has time to push the viewport.
+        requestAnimationFrame(() => {
+          target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+      }
+    };
+    document.addEventListener('focusin', onFocusIn);
+    return () => document.removeEventListener('focusin', onFocusIn);
+  }, []);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -221,9 +274,9 @@ export default function GiftFormModal({
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden"
+        className="w-full max-w-2xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift flex flex-col max-h-[var(--modal-max-h,92vh)] sm:max-h-[90vh] overflow-hidden"
       >
-        <form id="gift-form" onSubmit={submit} className="flex flex-col flex-1 min-h-0">
+        <form id="gift-form" onSubmit={submit} className="flex flex-col flex-1 min-h-0 [&_input]:[scroll-margin-top:5rem] [&_textarea]:[scroll-margin-top:5rem]">
           {/* ─── Header ─── */}
           <header className="px-5 sm:px-8 pt-5 sm:pt-6 pb-4 border-b border-ink/10 shrink-0">
             <div className="flex items-start justify-between gap-3 sm:gap-4">
