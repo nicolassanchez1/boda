@@ -8,9 +8,10 @@
 //   3. 60–90%   <guest name> + wedding date / venue
 //   4. 90–100%  CTA → scroll into the RSVP section below
 //
-// Reuses the canvas + loader + letterbox bars from MotoScroll. The overlay
-// text is positioned over the sticky stage via fixed positioning so it
-// stays centered as the user scrolls.
+// Each text block sits inside a translucent dark card (bg-ink/40 + backdrop-blur)
+// so it stays readable on top of the busy frame imagery. Accents use the admin
+// palette (terracotta) instead of gold so the guest view stays cohesive with
+// the rest of the app.
 
 import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
@@ -25,6 +26,15 @@ type Props = {
 
 const FADE = { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const };
 
+// Reusable frosted card behind any overlay text block.
+function OverlayCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inline-block bg-ink/55 backdrop-blur-md border border-white/10 rounded-3xl px-6 sm:px-10 py-6 sm:py-8 shadow-lift">
+      {children}
+    </div>
+  );
+}
+
 export default function GuestCinematic({
   guestName,
   cupos,
@@ -37,7 +47,7 @@ export default function GuestCinematic({
     offset: ['start start', 'end end'],
   });
 
-  // Each overlay has its own opacity (and slight y) keyed to scroll progress.
+  // Phase opacity + slight y for each text beat.
   const phase1Opacity = useTransform(
     scrollYProgress,
     [0, 0.05, 0.2, 0.25],
@@ -66,7 +76,6 @@ export default function GuestCinematic({
   );
   const phase4Y = useTransform(scrollYProgress, [0.88, 1], [40, 0]);
 
-  // Side progress rail + dots
   const railVisible = useTransform(
     scrollYProgress,
     [0, 0.02, 0.98, 1],
@@ -80,7 +89,7 @@ export default function GuestCinematic({
 
   return (
     <div ref={ref} className="relative bg-black">
-      <MotoScroll totalFrames={118} />
+      <MotoScroll totalFrames={118} showFrameCounter={false} />
 
       {/* Phase 1: "Nos vamos a casar" */}
       <motion.div
@@ -88,14 +97,16 @@ export default function GuestCinematic({
         className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none px-6"
         aria-hidden
       >
-        <div className="text-center">
-          <p className="eyebrow text-gold mb-4">Una invitación</p>
-          <h2 className="display-xl text-5xl sm:text-7xl md:text-8xl text-white leading-[0.95]">
-            Nos vamos
-            <br />
-            <em className="display-italic text-gold">a casar</em>
-          </h2>
-        </div>
+        <OverlayCard>
+          <div className="text-center">
+            <p className="eyebrow text-terracotta mb-3">Una invitación</p>
+            <h2 className="display-xl text-5xl sm:text-7xl md:text-8xl text-white leading-[0.95]">
+              Nos vamos
+              <br />
+              <em className="display-italic text-terracotta">a casar</em>
+            </h2>
+          </div>
+        </OverlayCard>
       </motion.div>
 
       {/* Phase 2: "queremos que seas parte de esto" */}
@@ -104,13 +115,15 @@ export default function GuestCinematic({
         className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none px-6"
         aria-hidden
       >
-        <div className="text-center max-w-3xl">
-          <h2 className="display-xl text-4xl sm:text-6xl md:text-7xl text-white leading-[1.05]">
-            Y queremos que seas
-            <br />
-            <em className="display-italic text-gold">parte de esto</em>
-          </h2>
-        </div>
+        <OverlayCard>
+          <div className="text-center max-w-3xl">
+            <h2 className="display-xl text-3xl sm:text-5xl md:text-6xl text-white leading-[1.05]">
+              Y queremos que seas
+              <br />
+              <em className="display-italic text-terracotta">parte de esto</em>
+            </h2>
+          </div>
+        </OverlayCard>
       </motion.div>
 
       {/* Phase 3: guest name + wedding info */}
@@ -119,29 +132,31 @@ export default function GuestCinematic({
         className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none px-6"
         aria-hidden
       >
-        <div className="text-center max-w-3xl">
-          <p className="eyebrow text-gold mb-3">Esta invitación es para</p>
-          <h2 className="display-xl text-5xl sm:text-7xl md:text-8xl text-white leading-[0.95]">
-            {guestName}
-          </h2>
-          <p className="mt-4 smallcaps text-white/60">
-            {cupos} {cupos === 1 ? 'persona' : 'personas'}
-          </p>
-          {weddingInfo.date && (
-            <p className="mt-8 display-italic text-2xl sm:text-3xl text-white/90">
-              {weddingInfo.date}
+        <OverlayCard>
+          <div className="text-center max-w-3xl">
+            <p className="eyebrow text-terracotta mb-3">Esta invitación es para</p>
+            <h2 className="display-xl text-5xl sm:text-7xl md:text-8xl text-white leading-[0.95]">
+              {guestName}
+            </h2>
+            <p className="mt-3 smallcaps text-white/70">
+              {cupos} {cupos === 1 ? 'persona' : 'personas'}
             </p>
-          )}
-          {weddingInfo.time && (
-            <p className="mt-1 text-white/70">{weddingInfo.time}</p>
-          )}
-          {weddingInfo.venue && (
-            <p className="mt-1 smallcaps text-white/50">{weddingInfo.venue}</p>
-          )}
-        </div>
+            {weddingInfo.date && (
+              <p className="mt-6 display-italic text-2xl sm:text-3xl text-white/95">
+                {weddingInfo.date}
+              </p>
+            )}
+            {weddingInfo.time && (
+              <p className="mt-1 text-white/75 text-sm">{weddingInfo.time}</p>
+            )}
+            {weddingInfo.venue && (
+              <p className="mt-1 smallcaps text-white/60">{weddingInfo.venue}</p>
+            )}
+          </div>
+        </OverlayCard>
       </motion.div>
 
-      {/* Phase 4: CTA */}
+      {/* Phase 4: CTA — terracotta accent to match admin palette */}
       <motion.div
         style={{ opacity: phase4Opacity, y: phase4Y }}
         className="fixed inset-x-0 bottom-[14vh] z-20 flex justify-center px-6 pointer-events-none"
@@ -149,7 +164,7 @@ export default function GuestCinematic({
         <button
           type="button"
           onClick={scrollToRsvp}
-          className="pointer-events-auto inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white text-ink font-medium hover:bg-gold hover:text-white transition-colors duration-300 shadow-lift"
+          className="pointer-events-auto inline-flex items-center gap-3 px-8 py-4 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors duration-300 shadow-lift"
         >
           Ver mi invitación
           <svg
@@ -167,7 +182,7 @@ export default function GuestCinematic({
         </button>
       </motion.div>
 
-      {/* Side progress rail — Ducati-style red line */}
+      {/* Side progress rail */}
       <motion.div
         style={{ opacity: railVisible }}
         className="fixed right-4 sm:right-6 top-[12vh] bottom-[14vh] w-px z-30 pointer-events-none"
@@ -192,9 +207,8 @@ export default function GuestCinematic({
         className="fixed bottom-[3vh] left-1/2 -translate-x-1/2 z-20 pointer-events-none"
         aria-hidden
       >
-        <div className="text-center text-white/60">
-          <p className="text-[0.6rem] tracking-[0.4em] uppercase mb-1.5">Scroll</p>
-          <div className="w-px h-6 mx-auto bg-gradient-to-b from-white/60 to-transparent" />
+        <div className="text-center text-white/70 px-3 py-1.5 bg-ink/40 backdrop-blur-sm rounded-full">
+          <p className="text-[0.6rem] tracking-[0.4em] uppercase">Scroll</p>
         </div>
       </motion.div>
     </div>

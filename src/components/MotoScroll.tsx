@@ -11,11 +11,13 @@ import {
 type Props = {
   totalFrames?: number;
   framePath?: (i: number) => string;
+  showFrameCounter?: boolean;
 };
 
 export default function MotoScroll({
   totalFrames = 118,
   framePath = (i) => `/frames/frame_${String(i).padStart(4, '0')}.png`,
+  showFrameCounter = true,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -188,8 +190,9 @@ export default function MotoScroll({
           </div>
         )}
 
-        {/* Frame counter — bottom-left, in the letterbox */}
-        {isReady && (
+        {/* Frame counter — bottom-left, in the letterbox. Opt-in for non-demo uses
+            (e.g. guest cinematic) since "0/117 frame" is ugly in production. */}
+        {isReady && showFrameCounter && (
           <div className="pointer-events-none absolute bottom-[2vh] left-6 sm:left-10 text-white/70">
             <p className="text-[0.6rem] tracking-[0.35em] uppercase">Frame</p>
             <p className="font-display text-2xl leading-none mt-1">
