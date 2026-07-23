@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import MenuManager from './_components/MenuManager';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function MenuPage() {
   const [mainDishes, drinks] = await Promise.all([

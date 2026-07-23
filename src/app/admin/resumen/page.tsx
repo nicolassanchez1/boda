@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import CateringShareButton from './_components/CateringShareButton';
 
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 export default async function ResumenPage() {
   const [invitations, mainDishes, drinks, attendees, reservedGifts, totalGifts] = await Promise.all([

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AddButton, List } from './_components/GiftManager';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function RegalosPage() {
   const [gifts, invitations] = await Promise.all([
