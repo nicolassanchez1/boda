@@ -8,10 +8,10 @@
 //   3. 60–90%   <guest name> + wedding date / venue
 //   4. 90–100%  CTA → scroll into the RSVP section below
 //
-// Each text block sits inside a translucent dark card (bg-ink/40 + backdrop-blur)
-// so it stays readable on top of the busy frame imagery. Accents use the admin
-// palette (terracotta) instead of gold so the guest view stays cohesive with
-// the rest of the app.
+// Aesthetic: editorial wedding palette (ivory + ink + terracotta + gold) so the
+// cinematic reads as part of the same brand as /admin, NOT a separate Ducati
+// demo. The Ducati footage sits behind translucent ivory cards that tint the
+// dark frames and make the text legible without losing the moody feel.
 
 import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
@@ -23,17 +23,6 @@ type Props = {
   weddingInfo: { date: string; time: string; venue: string };
   rsvpAnchorId: string;
 };
-
-const FADE = { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const };
-
-// Reusable frosted card behind any overlay text block.
-function OverlayCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="inline-block bg-ink/55 backdrop-blur-md border border-white/10 rounded-3xl px-6 sm:px-10 py-6 sm:py-8 shadow-lift">
-      {children}
-    </div>
-  );
-}
 
 export default function GuestCinematic({
   guestName,
@@ -47,7 +36,8 @@ export default function GuestCinematic({
     offset: ['start start', 'end end'],
   });
 
-  // Phase opacity + slight y for each text beat.
+  // Each overlay fades in at its start range and fades out as the next takes
+  // over. Slight Y on each gives the "rises into place" editorial feel.
   const phase1Opacity = useTransform(
     scrollYProgress,
     [0, 0.05, 0.2, 0.25],
@@ -76,6 +66,15 @@ export default function GuestCinematic({
   );
   const phase4Y = useTransform(scrollYProgress, [0.88, 1], [40, 0]);
 
+  // As the user scrolls past ~75%, the cinematic itself fades to ivory to
+  // soften the transition into the RSVP section below.
+  const cinematicFadeIvory = useTransform(
+    scrollYProgress,
+    [0.75, 1],
+    ['rgba(253,251,247,0)', 'rgba(253,251,247,1)'],
+  );
+
+  // Side progress rail (right edge) — terracotta dot growing
   const railVisible = useTransform(
     scrollYProgress,
     [0, 0.02, 0.98, 1],
@@ -88,8 +87,22 @@ export default function GuestCinematic({
   };
 
   return (
-    <div ref={ref} className="relative bg-black">
+    <div ref={ref} className="relative">
+      {/* Black stage behind the sticky canvas — required so the dark bike
+          frames are not jitter-edged by the surrounding ivory page. */}
+      <div className="absolute inset-0 bg-black" aria-hidden />
+
+      {/* The Ducati footage sits at the top. */}
       <MotoScroll totalFrames={118} showFrameCounter={false} />
+
+      {/* Soft ivory tint that grows as the user reaches the end of the scroll,
+          making the join to the RSVP section feel continuous rather than
+          "hitting a wall of black". */}
+      <motion.div
+        style={{ background: cinematicFadeIvory }}
+        className="pointer-events-none absolute inset-0 z-10"
+        aria-hidden
+      />
 
       {/* Phase 1: "Nos vamos a casar" */}
       <motion.div
@@ -98,14 +111,12 @@ export default function GuestCinematic({
         aria-hidden
       >
         <OverlayCard>
-          <div className="text-center">
-            <p className="eyebrow text-terracotta mb-3">Una invitación</p>
-            <h2 className="display-xl text-5xl sm:text-7xl md:text-8xl text-white leading-[0.95]">
-              Nos vamos
-              <br />
-              <em className="display-italic text-terracotta">a casar</em>
-            </h2>
-          </div>
+          <p className="eyebrow text-terracotta mb-3">Una invitación</p>
+          <h2 className="display-xl text-4xl sm:text-6xl md:text-7xl text-ink leading-[0.95]">
+            Nos vamos
+            <br />
+            <em className="display-italic text-terracotta-dark">a casar</em>
+          </h2>
         </OverlayCard>
       </motion.div>
 
@@ -115,14 +126,12 @@ export default function GuestCinematic({
         className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none px-6"
         aria-hidden
       >
-        <OverlayCard>
-          <div className="text-center max-w-3xl">
-            <h2 className="display-xl text-3xl sm:text-5xl md:text-6xl text-white leading-[1.05]">
-              Y queremos que seas
-              <br />
-              <em className="display-italic text-terracotta">parte de esto</em>
-            </h2>
-          </div>
+        <OverlayCard wide>
+          <h2 className="display-xl text-3xl sm:text-5xl md:text-6xl text-ink leading-[1.05]">
+            Y queremos que seas
+            <br />
+            <em className="display-italic text-terracotta-dark">parte de esto</em>
+          </h2>
         </OverlayCard>
       </motion.div>
 
@@ -133,30 +142,28 @@ export default function GuestCinematic({
         aria-hidden
       >
         <OverlayCard>
-          <div className="text-center max-w-3xl">
-            <p className="eyebrow text-terracotta mb-3">Esta invitación es para</p>
-            <h2 className="display-xl text-5xl sm:text-7xl md:text-8xl text-white leading-[0.95]">
-              {guestName}
-            </h2>
-            <p className="mt-3 smallcaps text-white/70">
-              {cupos} {cupos === 1 ? 'persona' : 'personas'}
+          <p className="eyebrow text-terracotta mb-2">Esta invitación es para</p>
+          <h2 className="display-xl text-4xl sm:text-6xl md:text-7xl text-ink leading-[0.95]">
+            {guestName}
+          </h2>
+          <p className="mt-2 smallcaps text-ink-muted">
+            {cupos} {cupos === 1 ? 'persona' : 'personas'}
+          </p>
+          {weddingInfo.date && (
+            <p className="mt-6 display-italic text-2xl sm:text-3xl text-terracotta-dark">
+              {weddingInfo.date}
             </p>
-            {weddingInfo.date && (
-              <p className="mt-6 display-italic text-2xl sm:text-3xl text-white/95">
-                {weddingInfo.date}
-              </p>
-            )}
-            {weddingInfo.time && (
-              <p className="mt-1 text-white/75 text-sm">{weddingInfo.time}</p>
-            )}
-            {weddingInfo.venue && (
-              <p className="mt-1 smallcaps text-white/60">{weddingInfo.venue}</p>
-            )}
-          </div>
+          )}
+          {weddingInfo.time && (
+            <p className="mt-1 text-ink-muted">{weddingInfo.time}</p>
+          )}
+          {weddingInfo.venue && (
+            <p className="mt-1 smallcaps text-ink-muted/70">{weddingInfo.venue}</p>
+          )}
         </OverlayCard>
       </motion.div>
 
-      {/* Phase 4: CTA — terracotta accent to match admin palette */}
+      {/* Phase 4: CTA — small enough to not need a backdrop since it's a button */}
       <motion.div
         style={{ opacity: phase4Opacity, y: phase4Y }}
         className="fixed inset-x-0 bottom-[14vh] z-20 flex justify-center px-6 pointer-events-none"
@@ -182,13 +189,13 @@ export default function GuestCinematic({
         </button>
       </motion.div>
 
-      {/* Side progress rail */}
+      {/* Side progress rail — terracotta */}
       <motion.div
         style={{ opacity: railVisible }}
         className="fixed right-4 sm:right-6 top-[12vh] bottom-[14vh] w-px z-30 pointer-events-none"
         aria-hidden
       >
-        <div className="absolute inset-0 bg-white/15" />
+        <div className="absolute inset-0 bg-terracotta/20" />
         <motion.div
           style={{ height: railHeight }}
           className="absolute inset-x-0 top-0 bg-terracotta origin-top"
@@ -207,10 +214,37 @@ export default function GuestCinematic({
         className="fixed bottom-[3vh] left-1/2 -translate-x-1/2 z-20 pointer-events-none"
         aria-hidden
       >
-        <div className="text-center text-white/70 px-3 py-1.5 bg-ink/40 backdrop-blur-sm rounded-full">
-          <p className="text-[0.6rem] tracking-[0.4em] uppercase">Scroll</p>
-        </div>
+        <OverlayCard compact>
+          <p className="text-[0.6rem] tracking-[0.4em] uppercase text-ink-muted">Scroll ↓</p>
+        </OverlayCard>
       </motion.div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Reusable card for the overlays — ivory with subtle ivory tint, terracotta accent
+// line, soft shadow. Light enough to stay legible over the dark Ducati frames
+// while still feeling on-brand with /admin.
+// -----------------------------------------------------------------------------
+
+function OverlayCard({
+  children,
+  wide,
+  compact,
+}: {
+  children: React.ReactNode;
+  wide?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        'inline-block bg-ivory-50/92 backdrop-blur-md rounded-3xl shadow-lift border border-ink/10',
+        compact ? 'px-4 py-2' : wide ? 'px-8 sm:px-12 py-6 sm:py-8' : 'px-6 sm:px-10 py-6 sm:py-8',
+      ].join(' ')}
+    >
+      {children}
     </div>
   );
 }
