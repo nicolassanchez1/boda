@@ -359,12 +359,9 @@ function GiftCard({
           )}
         </div>
 
-        {/* Action menu trigger — sits in the row on mobile (overlaid on the
-            image area), in the top-right corner on desktop. The desktop
-            dropdown is rendered inside this same div (so `absolute` anchors
-            to it); the mobile bottom sheet is rendered outside the article
-            as a sibling. */}
-        <div className="absolute top-2 right-2 sm:top-3 sm:right-3" ref={menuRef}>
+        {/* Action menu trigger — desktop only. On mobile it's placed inline in
+            the content row (see below) so it doesn't cover the photo. */}
+        <div ref={menuRef} className="hidden sm:block sm:absolute sm:top-3 sm:right-3">
           <button
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
@@ -385,7 +382,7 @@ function GiftCard({
                 exit={{ opacity: 0, y: -4, scale: 0.96 }}
                 transition={{ duration: 0.15 }}
                 role="menu"
-                className="hidden sm:block absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden z-10 py-1"
+                className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden z-10 py-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MenuItem icon={<EditIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
@@ -459,27 +456,45 @@ function GiftCard({
           </p>
         )}
 
-        {/* Bottom row — pushed to the end so all cards align on desktop. */}
+        {/* Bottom row — pushed to the end so all cards align on desktop.
+            On mobile the "···" button lives here, next to the store link,
+            so it doesn't overlap the gift photo. */}
         <div className="mt-auto sm:pt-2 flex items-center justify-between gap-2 text-xs">
-          {gift.reservedBy ? (
-            <span className="text-sage-dark truncate min-w-0">
-              <span className="text-ink-muted/70 hidden sm:inline">Por </span>
-              <strong className="font-medium">{gift.reservedBy.guestName}</strong>
-            </span>
-          ) : (
-            <span className="text-ink-muted/50">Disponible</span>
-          )}
-          {gift.storeUrl ? (
-            <a
-              href={gift.storeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="cursor-pointer shrink-0 inline-flex items-center gap-0.5 text-terracotta-dark hover:text-terracotta"
-              aria-label={`Ver tienda para ${gift.name}`}
+          <div className="min-w-0 truncate">
+            {gift.reservedBy ? (
+              <span className="text-sage-dark">
+                <span className="text-ink-muted/70 hidden sm:inline">Por </span>
+                <strong className="font-medium">{gift.reservedBy.guestName}</strong>
+              </span>
+            ) : (
+              <span className="text-ink-muted/50">Disponible</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {gift.storeUrl ? (
+              <a
+                href={gift.storeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cursor-pointer inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto text-terracotta-dark hover:text-terracotta"
+                aria-label={`Ver tienda para ${gift.name}`}
+              >
+                <ExternalIcon className="w-3.5 h-3.5" />
+              </a>
+            ) : null}
+            {/* Mobile-only action button — desktop version lives in the
+                thumbnail corner (see above). Opens the bottom sheet. */}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Más acciones"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="sm:hidden cursor-pointer w-8 h-8 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
             >
-              <ExternalIcon className="w-3 h-3" />
-            </a>
-          ) : null}
+              <DotsIcon className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </motion.article>
