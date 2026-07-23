@@ -381,7 +381,12 @@ function extractLinkRel(html: string, rel: string): string | null {
 
 export async function fetchGiftImage(
   rawInput: unknown,
-): Promise<AdminActionResult<{ imageUrl: string }>> {
+): Promise<
+  AdminActionResult<{
+    imageUrl: string;
+    title?: string;
+  }>
+> {
   if (!ensureAdmin()) return fail('No autorizado.');
 
   const input = (rawInput as { url?: unknown })?.url;
@@ -428,18 +433,57 @@ export async function fetchGiftImage(
   }
 
   const html = await res.text();
+  const finalUrl = res.url || safety.url.toString();
 
-  // Try og:image first, then twitter:image, then <link rel="image_src">.
+  // Mercado Libre aggressively blocks server-side fetches via Cloudflare
+  // ("suspicious-traffic-frontend" / "account-verification" pages). Detect
+  // early so the admin gets a clear, actionable error instead of a generic
+  // "no image found".
+  if (
+    /suspicious-traffic-frontend|account-verification|cf-chl-bypass/i.test(html.slice(0, 50_000)) ||
+    /account-verification|captcha|challenge-platform/i.test(finalUrl)
+  ) {
+    return fail(
+      'MercadoLibre bloqueó la petición (anti-bot). Copia la URL de la imagen directamente desde el navegador (clic derecho en la foto → "Copiar dirección de imagen") y pégala en el campo Imagen.',
+    );
+  }
+
+  // Parse JSON-LD once — many sites embed product data here (MercadoLibre does,
+  // Amazon doesn't, but it's harmless to try).
+  const productLd = extractFirstProductLd(html);
+
+  // ---- Image ----
   let imageUrl =
     extractMetaContent(html, 'property', 'og:image:secure_url') ||
     extractMetaContent(html, 'property', 'og:image') ||
     extractMetaContent(html, 'name', 'twitter:image') ||
-    extractLinkRel(html, 'image_src');
+    extractLinkRel(html, 'image_src') ||
+    (productLd?.image as string | undefined) ||
+    undefined;
+
+  // Amazon fallback: colorImages[] / hiRes
+  if (!imageUrl) {
+    const amazonMatch = html.match(
+      /"large"\s*:\s*"(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i,
+    );
+    if (amazonMatch) imageUrl = amazonMatch[1];
+
+    if (!imageUrl) {
+      const hiRes = html.match(
+        /"hiRes"\s*:\s*"(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i,
+      );
+      if (hiRes) imageUrl = hiRes[1];
+    }
+  }
 
   if (!imageUrl) {
-    return fail(
-      'No encontré una imagen en esa página. Pega una URL directa de imagen.',
-    );
+    const host = safety.url.hostname.toLowerCase();
+    if (/amazon\.|amzn\./i.test(host)) {
+      return fail(
+        'Amazon no expone la imagen en esta página. Pega la URL de la imagen directamente desde el navegador.',
+      );
+    }
+    return fail('No encontré una imagen. Pega una URL directa de imagen.');
   }
 
   // Resolve relative URLs against the source.
@@ -453,5 +497,155 @@ export async function fetchGiftImage(
     return fail('URL de imagen inválida.');
   }
 
-  return { ok: true, data: { imageUrl } };
+  // ---- Title (in priority order) ----
+  // 1. Amazon-specific: <span id="productTitle"> (clean, no store suffix)
+  // 2. JSON-LD Product.name
+  // 3. og:title / twitter:title
+  // 4. <title> tag (usually has store suffix — cleanTitle handles it)
+  const amazonTitleMatch = html.match(
+    /<span[^>]*\bid=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i,
+  );
+  const amazonTitle = amazonTitleMatch
+    ? decodeHtml(amazonTitleMatch[1]).trim()
+    : undefined;
+
+  const rawTitle =
+    amazonTitle ||
+    (productLd?.name as string | undefined) ||
+    extractMetaContent(html, 'property', 'og:title') ||
+    extractMetaContent(html, 'name', 'twitter:title') ||
+    extractTitleTag(html);
+  const title = rawTitle ? cleanTitle(rawTitle) : undefined;
+
+  return {
+    ok: true,
+    data: {
+      imageUrl,
+      ...(title ? { title } : {}),
+    },
+  };
 }
+
+// -----------------------------------------------------------------------------
+// JSON-LD helpers
+// -----------------------------------------------------------------------------
+
+function extractFirstProductLd(html: string): Record<string, unknown> | null {
+  const blocks = html.match(
+    /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  );
+  if (!blocks) return null;
+  for (const block of blocks) {
+    const inner = block.replace(/<script[^>]*>|<\/script>/gi, '').slice(0, 200_000);
+    try {
+      const data = JSON.parse(inner);
+      const found = findProductNode(data);
+      if (found) return found as Record<string, unknown>;
+    } catch {
+      // malformed JSON-LD, skip
+    }
+  }
+  return null;
+}
+
+function findProductNode(node: unknown): unknown | null {
+  if (!node || typeof node !== 'object') return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findProductNode(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  const obj = node as Record<string, unknown>;
+  if (obj['@type'] === 'Product' || (Array.isArray(obj['@type']) && obj['@type'].includes('Product'))) {
+    return obj;
+  }
+  // Walk into @graph / mainEntity / subjectOf (common in nested schemas).
+  for (const key of ['@graph', 'mainEntity', 'subjectOf']) {
+    const nested = findProductNode(obj[key]);
+    if (nested) return nested;
+  }
+  // Generic descent.
+  for (const v of Object.values(obj)) {
+    if (v && typeof v === 'object') {
+      const nested = findProductNode(v);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+// -----------------------------------------------------------------------------
+// Misc extractors
+// -----------------------------------------------------------------------------
+
+
+function extractTitleTag(html: string): string | null {
+  const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return m ? m[1].trim() : null;
+}
+
+function cleanTitle(raw: string): string {
+  // Strip store suffixes/prefixes like:
+  //   "Product Name : Amazon.com"
+  //   "Amazon.com: Product Name"
+  //   "Product Name - MercadoLibre"
+  //   "Product Name | Falabella"
+  // and decode basic HTML entities. Take only the first line.
+  const STORES =
+    'amazon|amazon\\.com|amzn|mercadolibre|mercadolibre\\.com|mercado\\s*libre|meli|éxito|jumbo|falabella|linio|exito';
+
+  let t = raw.split('\n')[0];
+
+  // Suffix form: "<name> : Amazon.com"
+  t = t.replace(
+    new RegExp(`\\s*[\\|·•\\-–—:]\\s*(?:${STORES})\\s*$`, 'i'),
+    '',
+  );
+  // Prefix form: "Amazon.com : <name>" or "MercadoLibre Colombia: <name>"
+  // If the title starts with one-or-more capitalized words ending in a colon,
+  // strip everything up to and including that colon (it's almost always a
+  // store name + optional country).
+  t = t.replace(
+    /^[A-ZÁÉÍÓÚÑa-záéíóúñ][\wÁÉÍÓÚÑáéíóúñ&'.\- ]*?\s*:\s*/,
+    (m) => {
+      // Only strip if the prefix contains a known store name — avoids eating
+      // legitimate colons in product names like "Dell XPS 13: La laptop".
+      return /amazon|amzn|mercadolibre|meli|éxito|jumbo|falabella|linio|exito/i.test(m) ? '' : m;
+    },
+  );
+  // Also handle plain "Amazon.com : " style (no colon at end).
+  t = t.replace(
+    new RegExp(`^(?:${STORES})\\s*[\\|·•\\-–—:]\\s*`, 'i'),
+    '',
+  );
+
+  // Decode HTML entities.
+  t = t
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return t;
+}
+
+function decodeHtml(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+

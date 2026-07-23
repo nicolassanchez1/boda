@@ -43,7 +43,9 @@ export default function GiftFormModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  // Explicit saving state — React 18's useTransition doesn't toggle `pending`
+  // during awaits, so we drive the loader ourselves for reliable visual feedback.
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchingImage, setFetchingImage] = useState(false);
   const [fetchHint, setFetchHint] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export default function GiftFormModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!name.trim()) {
@@ -93,7 +95,8 @@ export default function GiftFormModal({
       nameRef.current?.focus();
       return;
     }
-    startTransition(async () => {
+    setSaving(true);
+    try {
       const result = await upsertGift({
         id: gift?.id ?? null,
         name: name.trim(),
@@ -105,12 +108,27 @@ export default function GiftFormModal({
       });
       if (!result.ok) {
         setError(result.error);
+        setSaving(false);
         return;
       }
       onClose();
       router.refresh();
-    });
+    } catch (err) {
+      // Surface unexpected errors instead of swallowing them silently.
+      // eslint-disable-next-line no-console
+      console.error('[GiftFormModal] save failed:', err);
+      setError(
+        err instanceof Error
+          ? `Error inesperado: ${err.message}`
+          : 'Error inesperado al guardar. Revisa la consola.',
+      );
+      setSaving(false);
+    }
   };
+
+  const [extracted, setExtracted] = useState<{
+    title?: string;
+  } | null>(null);
 
   const handleFetchImage = () => {
     const candidate = imageUrl.trim() || storeUrl.trim();
@@ -121,15 +139,34 @@ export default function GiftFormModal({
     setFetchHint(null);
     setError(null);
     setFetchingImage(true);
+    // If the admin pasted a product URL into the image field, also save it as the
+    // store URL so they don't have to paste the same link twice.
+    if (imageUrl.trim()) {
+      setStoreUrl(imageUrl.trim());
+    }
     fetchGiftImage({ url: candidate })
       .then((result) => {
         if (!result.ok) {
           setFetchHint(result.error);
+          setExtracted(null);
           return;
         }
-        if (result.data?.imageUrl) {
-          setImageUrl(result.data.imageUrl);
+        const data = result.data;
+        if (data?.imageUrl) {
+          setImageUrl(data.imageUrl);
           setFetchHint(null);
+        }
+        // Always auto-fill name (overwrite) — admin can edit after if needed.
+        if (data?.title) {
+          setName(data.title);
+        }
+        // Show extracted metadata (title only — price was removed per request).
+        if (data?.title) {
+          setExtracted({
+            title: data.title,
+          });
+        } else {
+          setExtracted(null);
         }
       })
       .finally(() => setFetchingImage(false));
@@ -294,6 +331,31 @@ export default function GiftFormModal({
               </div>
             </FormField>
 
+            {/* Extracted metadata panel — appears after a successful fetch. */}
+            <AnimatePresence>
+              {extracted?.title && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -4, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-sage/8 border border-sage/30 rounded-2xl px-4 py-3 flex items-start gap-3">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-sage-dark shrink-0 mt-0.5" aria-hidden>
+                      <path d="M5 12 L10 17 L19 7" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs uppercase tracking-wider text-sage-dark font-medium">
+                        Título extraído
+                      </p>
+                      <p className="text-sm text-ink mt-0.5 truncate">{extracted.title}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Name + Description in 2-col on desktop */}
             <div className="grid sm:grid-cols-2 gap-6">
               <FormField label="Nombre del regalo" required counter={{ value: name.length, max: NAME_MAX }}>
@@ -307,7 +369,10 @@ export default function GiftFormModal({
                 />
               </FormField>
 
-              <FormField label="Tienda (opcional)" hint="Link al producto en la tienda.">
+              <FormField
+                label="Tienda (opcional)"
+                hint="Link al producto en la tienda."
+              >
                 <input
                   type="url"
                   value={storeUrl}
@@ -317,6 +382,9 @@ export default function GiftFormModal({
                 />
               </FormField>
             </div>
+
+            {/* Precio removed — feature retired */}
+
 
             <FormField
               label="Descripción (opcional)"
@@ -387,22 +455,77 @@ export default function GiftFormModal({
               <button
                 type="button"
                 onClick={onClose}
-                disabled={pending}
+                disabled={saving}
                 className="cursor-pointer px-5 py-2.5 rounded-full border border-ink/15 text-ink hover:bg-ivory-100 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                disabled={pending || !name.trim()}
+                disabled={saving || !name.trim()}
                 className="cursor-pointer inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors disabled:opacity-50"
               >
-                {pending && <SpinnerIcon className="w-4 h-4 animate-spin" />}
-                {pending ? 'Guardando…' : mode === 'add' ? 'Crear regalo' : 'Guardar cambios'}
+                {saving && <SpinnerIcon className="w-4 h-4 animate-spin" />}
+                {saving ? 'Guardando…' : mode === 'add' ? 'Crear regalo' : 'Guardar cambios'}
               </button>
             </div>
           </footer>
         </form>
+
+        {/* Full-form overlay loader — covers everything during save so it's
+            obvious the action is in flight and to prevent double-submits. */}
+        <AnimatePresence>
+          {saving && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 z-10 bg-ivory-50/90 backdrop-blur-md flex flex-col items-center justify-center gap-5"
+              role="status"
+              aria-live="polite"
+            >
+              {/* Editorial spinner: rotating terracotta arc with breathing gold halo */}
+              <div className="relative">
+                <motion.div
+                  className="absolute inset-0 rounded-full bg-gold/20 blur-xl"
+                  animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <div className="relative w-16 h-16">
+                  {/* Track */}
+                  <div className="absolute inset-0 rounded-full border-2 border-ink/10" />
+                  {/* Rotating arc */}
+                  <svg viewBox="0 0 64 64" className="absolute inset-0 animate-spin" style={{ animationDuration: '1.2s' }}>
+                    <circle
+                      cx="32"
+                      cy="32"
+                      r="28"
+                      fill="none"
+                      stroke="rgb(184, 92, 56)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeDasharray="60 116"
+                    />
+                  </svg>
+                  {/* Center brand mark */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="display-italic text-2xl text-terracotta">m</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center space-y-1.5">
+                <p className="font-display text-2xl text-ink">
+                  {mode === 'add' ? 'Creando regalo…' : 'Guardando cambios…'}
+                </p>
+                <p className="text-xs text-ink-muted tracking-wider uppercase">
+                  No cierres esta ventana
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
