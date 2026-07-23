@@ -2,13 +2,24 @@
 
 import { useTransition } from 'react';
 import { adminLogout } from '@/actions/admin';
+import { useAdminSession } from '@/lib/stores/admin-session';
 
 export default function LogoutButton() {
   const [pending, startTransition] = useTransition();
+  const clearSession = useAdminSession((s) => s.clearSession);
+
+  const handleLogout = () => {
+    // Clear client-side state FIRST so any cached admin pages stop rendering
+    // their content instantly. The server action then clears the cookie and
+    // redirects to /admin/login.
+    clearSession();
+    startTransition(() => adminLogout());
+  };
+
   return (
     <button
       type="button"
-      onClick={() => startTransition(() => adminLogout())}
+      onClick={handleLogout}
       disabled={pending}
       className="group inline-flex items-center gap-2 smallcaps text-ink-muted hover:text-terracotta-dark transition-colors disabled:opacity-50"
     >

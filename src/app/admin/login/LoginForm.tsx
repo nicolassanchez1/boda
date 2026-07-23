@@ -4,9 +4,11 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { adminLogin } from '@/actions/admin';
+import { useAdminSession } from '@/lib/stores/admin-session';
 
 export default function LoginForm({ next }: { next: string }) {
   const router = useRouter();
+  const markAuthenticated = useAdminSession((s) => s.markAuthenticated);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -20,6 +22,9 @@ export default function LoginForm({ next }: { next: string }) {
         setError(result.error);
         return;
       }
+      // Mark the client-side session so the AuthGuard lets us through on the
+      // next render without a flash of the login page.
+      markAuthenticated();
       router.replace(next || '/admin');
       router.refresh();
     });

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import AdminTabs from './_components/AdminTabs';
 import LogoutButton from './_components/LogoutButton';
 import LiveActivity from '@/components/admin/LiveActivity';
+import AuthGuard from '@/components/admin/AuthGuard';
 import { CornerFlourish } from '@/components/ui/Ornament';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +32,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 md:py-14">
-        {children}
+        {/* Client-side auth guard: instant redirect if no session, even if the
+            server middleware somehow doesn't catch it. */}
+        <AuthGuard>{children}</AuthGuard>
       </main>
     </div>
   );
