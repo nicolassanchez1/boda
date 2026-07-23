@@ -25,9 +25,13 @@ type SortKey = 'recent' | 'name' | 'status';
 export default function InvitationsList({
   invitations,
   baseUrl,
+  isFiltered = false,
+  totalCount,
 }: {
   invitations: InvitationWithRelations[];
   baseUrl: string;
+  isFiltered?: boolean;
+  totalCount?: number;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -98,17 +102,31 @@ export default function InvitationsList({
 
   if (invitations.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-soft p-12 text-center">
-        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-ivory-100 flex items-center justify-center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6 text-ink-muted">
+      <div className="bg-white rounded-2xl shadow-soft p-8 sm:p-12 text-center">
+        <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-ivory-100 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-7 h-7 text-ink-muted">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
             <circle cx="9" cy="7" r="4" />
             <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
         </div>
-        <p className="font-display text-2xl text-ink mb-1">Sin invitaciones</p>
-        <p className="text-sm text-ink-muted mb-6">Crea la primera desde el botón de arriba.</p>
+        <p className="font-display text-2xl text-ink mb-1">
+          {isFiltered ? 'Sin resultados' : 'Sin invitaciones'}
+        </p>
+        <p className="text-sm text-ink-muted mb-6 max-w-sm mx-auto leading-relaxed">
+          {isFiltered
+            ? 'Ninguna invitación coincide con los filtros activos. Probá cambiarlos arriba.'
+            : 'Creá la primera desde el botón de arriba a la derecha.'}
+        </p>
+        {isFiltered && (
+          <a
+            href="/admin"
+            className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ink text-ivory-50 text-sm font-medium hover:bg-ink-soft transition-colors"
+          >
+            Ver todas las invitaciones
+          </a>
+        )}
       </div>
     );
   }
@@ -164,8 +182,20 @@ export default function InvitationsList({
         <div className="flex items-center gap-3 px-2 py-1 text-xs text-ink-muted">
           <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} ariaLabel="Seleccionar todo" />
           <span>
-            {filtered.length} {filtered.length === 1 ? 'invitación' : 'invitaciones'}
-            {search && ` (filtradas de ${invitations.length})`}
+            <strong className="font-medium text-ink-soft">{filtered.length}</strong>{' '}
+            {filtered.length === 1 ? 'invitación' : 'invitaciones'}
+            {search && (
+              <span className="text-ink-muted">
+                {' '}
+                (filtradas de {invitations.length})
+              </span>
+            )}
+            {!search && filtered && totalCount != null && filtered.length !== totalCount && (
+              <span className="text-ink-muted">
+                {' '}
+                de {totalCount}
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -173,8 +203,24 @@ export default function InvitationsList({
       {/* Card list */}
       <div className="space-y-2">
         {filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-soft p-12 text-center text-ink-muted">
-            No hay invitaciones que coincidan con tu búsqueda.
+          <div className="bg-white rounded-2xl shadow-soft p-8 sm:p-12 text-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-ivory-100 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-6 h-6 text-ink-muted" aria-hidden>
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20 L16 16" />
+              </svg>
+            </div>
+            <p className="font-display text-xl text-ink mb-1">Sin coincidencias</p>
+            <p className="text-sm text-ink-muted mb-5">
+              Probá con otro nombre, teléfono o nota.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full border border-ink/15 hover:bg-ivory-100 transition-colors text-sm"
+            >
+              Limpiar búsqueda
+            </button>
           </div>
         ) : (
           filtered.map((inv) => (
@@ -417,9 +463,9 @@ function InvitationCard({
         {/* Left accent bar */}
         <div className={['absolute left-0 top-0 bottom-0 w-1', accentColor].join(' ')} />
 
-        <div className="pl-5 pr-3 py-3 sm:pl-6 sm:pr-4 sm:py-4 flex items-start gap-3">
+        <div className="pl-5 pr-3 py-4 sm:pl-6 sm:pr-4 sm:py-5 flex items-start gap-3 sm:gap-4">
           {/* Checkbox */}
-          <div className="pt-1.5">
+          <div className="pt-0.5 sm:pt-1">
             <Checkbox
               checked={isSelected}
               onChange={onToggleSelected}
@@ -429,21 +475,27 @@ function InvitationCard({
 
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            {/* Top row: name + status + cupos */}
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <h3 className="font-display text-xl text-ink truncate">{invitation.guestName}</h3>
+            {/* Top row: name + status */}
+            <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
+              <h3 className="font-display text-lg sm:text-xl text-ink truncate min-w-0 max-w-full">
+                {invitation.guestName}
+              </h3>
               <StatusBadge status={invitation.status} />
-              <span className="inline-flex items-center gap-1 bg-ivory-100 text-ink-soft px-2.5 py-1 rounded-full text-xs">
+            </div>
+
+            {/* Meta row: cupos + opened flag — on its own line on mobile */}
+            <div className="flex items-center gap-2 sm:gap-3 mt-1.5 flex-wrap text-xs">
+              <span className="inline-flex items-center gap-1 bg-ivory-100 text-ink-soft px-2.5 py-1 rounded-full">
                 <UsersIcon className="w-3 h-3" />
                 {invitation.attending != null ? `${invitation.attending} / ${invitation.cupos}` : `${invitation.cupos} cupos`}
               </span>
               {invitation.firstOpenedAt ? (
-                <span className="inline-flex items-center gap-1 text-xs text-sage-dark" title={`Abierto el ${new Date(invitation.firstOpenedAt).toLocaleDateString('es-CO')}`}>
+                <span className="inline-flex items-center gap-1 text-sage-dark" title={`Abierto el ${new Date(invitation.firstOpenedAt).toLocaleDateString('es-CO')}`}>
                   <CheckIcon className="w-3 h-3" />
                   abierto
                 </span>
               ) : showAttentionBadge ? (
-                <span className="inline-flex items-center gap-1 text-xs text-terracotta-dark font-medium">
+                <span className="inline-flex items-center gap-1 text-terracotta-dark font-medium">
                   <BellIcon className="w-3 h-3" />
                   no abrió
                 </span>
@@ -452,7 +504,7 @@ function InvitationCard({
 
             {/* Phone + notes */}
             {(invitation.phone || invitation.notes) && (
-              <p className="text-xs text-ink-muted mt-1 truncate">
+              <p className="text-xs text-ink-muted mt-2 truncate">
                 {invitation.phone && <span>{invitation.phone}</span>}
                 {invitation.phone && invitation.notes && <span className="mx-2">·</span>}
                 {invitation.notes && <em className="italic">"{invitation.notes}"</em>}
@@ -461,14 +513,14 @@ function InvitationCard({
 
             {/* Summary chips */}
             {(attendeeCount > 0 || giftCount > 0) && (
-              <div className="flex flex-wrap gap-1.5 mt-2 text-xs">
+              <div className="flex flex-wrap gap-1.5 mt-2.5 text-xs">
                 {attendeeCount > 0 && (
-                  <span className="bg-ivory-100 text-ink-soft px-2 py-1 rounded-full">
+                  <span className="bg-ivory-100 text-ink-soft px-2.5 py-1 rounded-full">
                     {attendeeCount} {attendeeCount === 1 ? 'asistente' : 'asistentes'}
                   </span>
                 )}
                 {giftCount > 0 && (
-                  <span className="bg-ivory-100 text-ink-soft px-2 py-1 rounded-full">
+                  <span className="bg-ivory-100 text-ink-soft px-2.5 py-1 rounded-full">
                     {giftCount} {giftCount === 1 ? 'regalo' : 'regalos'}
                   </span>
                 )}
