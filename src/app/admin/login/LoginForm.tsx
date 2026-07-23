@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { adminLogin } from '@/actions/admin';
@@ -8,10 +8,21 @@ import { useAdminSession } from '@/lib/stores/admin-session';
 
 export default function LoginForm({ next }: { next: string }) {
   const router = useRouter();
-  const markAuthenticated = useAdminSession((s) => s.markAuthenticated);
+  const isAuthenticated = useAdminSession((s) => s.isAuthenticated);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // If the user already has an active session in this browser, skip the
+  // password screen and route them straight into the admin. We jump to
+  // /admin/resumen (the canonical overview) rather than the requested `next`,
+  // because `next` typically came from a now-stale redirect and resumen is
+  // almost always what they want to land on.
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace(next || '/admin/resumen');
+    }
+  }, [isAuthenticated, next, router]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +35,8 @@ export default function LoginForm({ next }: { next: string }) {
       }
       // Mark the client-side session so the AuthGuard lets us through on the
       // next render without a flash of the login page.
-      markAuthenticated();
-      router.replace(next || '/admin');
+      useAdminSession.getState().markAuthenticated();
+      router.replace(next || '/admin/resumen');
       router.refresh();
     });
   };

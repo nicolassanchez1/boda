@@ -320,12 +320,14 @@ function GiftCard({
       layout
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className={[
-        'group relative bg-white rounded-2xl shadow-soft overflow-hidden flex flex-col transition-shadow hover:shadow-lift',
+        // Mobile: horizontal row (thumbnail + content + dots).
+        // Desktop (sm+): vertical card, image on top.
+        'group relative bg-white rounded-2xl shadow-soft overflow-hidden flex flex-row sm:flex-col transition-shadow hover:shadow-lift',
         !gift.active ? 'opacity-60' : '',
       ].join(' ')}
     >
-      {/* Image area — square, fills the card */}
-      <div className="relative aspect-square bg-ivory-100 overflow-hidden">
+      {/* Thumbnail — square on mobile (smaller), full card-width on desktop */}
+      <div className="relative w-24 h-24 sm:w-auto sm:aspect-square shrink-0 bg-ivory-100 overflow-hidden">
         {gift.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -336,12 +338,13 @@ function GiftCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-ivory-100 to-ivory-200">
-            <GiftIcon className="w-20 h-20 text-ink/15" />
+            <GiftIcon className="w-10 h-10 sm:w-20 sm:h-20 text-ink/15" />
           </div>
         )}
 
-        {/* Status badges */}
-        <div className="absolute top-3 left-3 flex gap-1.5">
+        {/* Status badges — desktop only on the image, mobile shows them in
+            the content area to keep the thumbnail clean. */}
+        <div className="absolute top-3 left-3 hidden sm:flex gap-1.5">
           {reserved && (
             <span className="inline-flex items-center gap-1 bg-sage text-white text-xs font-medium px-2.5 py-1 rounded-full shadow-sm">
               <CheckIcon className="w-3 h-3" />
@@ -355,15 +358,15 @@ function GiftCard({
           )}
         </div>
 
-        {/* Action menu trigger */}
-        <div className="absolute top-3 right-3" ref={menuRef}>
+        {/* Action menu trigger — on the image (desktop) or in the row (mobile). */}
+        <div className="absolute top-2 right-2 sm:top-3 sm:right-3" ref={menuRef}>
           <button
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
             aria-label="Más acciones"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="cursor-pointer w-10 h-10 rounded-full bg-white/90 backdrop-blur shadow-soft flex items-center justify-center text-ink hover:bg-white transition-colors"
+            className="cursor-pointer w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-white/90 backdrop-blur shadow-soft flex items-center justify-center text-ink hover:bg-white transition-colors"
           >
             <DotsIcon className="w-4 h-4" />
           </button>
@@ -419,23 +422,40 @@ function GiftCard({
         </div>
       </div>
 
-      {/* Content — compact, mt-auto pushes footer to the bottom */}
-      <div className="p-3.5 flex-1 flex flex-col gap-1.5 min-h-0">
+      {/* Content — flex-row on mobile (compact), flex-col on desktop. */}
+      <div className="p-3 sm:p-3.5 flex-1 flex flex-col gap-1 sm:gap-1.5 min-w-0 justify-center sm:justify-start">
+        {/* Mobile-only status row (badges that we hid from the thumbnail) */}
+        {(reserved || !gift.active) && (
+          <div className="flex sm:hidden gap-1.5 text-[0.65rem]">
+            {reserved && (
+              <span className="inline-flex items-center gap-1 bg-sage/15 text-sage-dark font-medium px-2 py-0.5 rounded-full">
+                <CheckIcon className="w-2.5 h-2.5" />
+                Apartado
+              </span>
+            )}
+            {!gift.active && (
+              <span className="bg-ink/10 text-ink-muted font-medium px-2 py-0.5 rounded-full">
+                Oculto
+              </span>
+            )}
+          </div>
+        )}
+
         <h3 className="font-display text-base leading-tight text-ink line-clamp-2">
           {gift.name}
         </h3>
 
         {gift.description && (
-          <p className="text-xs text-ink-muted line-clamp-2 leading-snug">
+          <p className="text-xs text-ink-muted line-clamp-2 leading-snug hidden sm:block">
             {gift.description}
           </p>
         )}
 
-        {/* Bottom row — pushed to the end so all cards align */}
-        <div className="mt-auto pt-2 flex items-end justify-between gap-2 text-xs">
+        {/* Bottom row — pushed to the end so all cards align on desktop. */}
+        <div className="mt-auto sm:pt-2 flex items-center justify-between gap-2 text-xs">
           {gift.reservedBy ? (
-            <span className="text-sage-dark truncate">
-              <span className="text-ink-muted/70">Por </span>
+            <span className="text-sage-dark truncate min-w-0">
+              <span className="text-ink-muted/70 hidden sm:inline">Por </span>
               <strong className="font-medium">{gift.reservedBy.guestName}</strong>
             </span>
           ) : (
