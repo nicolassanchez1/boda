@@ -360,9 +360,10 @@ function GiftCard({
         </div>
 
         {/* Action menu trigger — sits in the row on mobile (overlaid on the
-            image area), in the top-right corner on desktop. The dropdown is
-            rendered as a portal-style bottom sheet on mobile and a normal
-            dropdown on desktop, so it's always reachable. */}
+            image area), in the top-right corner on desktop. The desktop
+            dropdown is rendered inside this same div (so `absolute` anchors
+            to it); the mobile bottom sheet is rendered outside the article
+            as a sibling. */}
         <div className="absolute top-2 right-2 sm:top-3 sm:right-3" ref={menuRef}>
           <button
             type="button"
@@ -374,6 +375,58 @@ function GiftCard({
           >
             <DotsIcon className="w-4 h-4" />
           </button>
+
+          {/* Desktop dropdown — anchored to the trigger. Hidden on mobile. */}
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                role="menu"
+                className="hidden sm:block absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden z-10 py-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MenuItem icon={<EditIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
+                  Editar
+                </MenuItem>
+                <div className="h-px bg-ink/5 my-1" />
+                <MenuItem
+                  icon={<ArrowUpIcon className="w-4 h-4" />}
+                  onClick={() => { setMenuOpen(false); onMoveUp(); }}
+                  disabled={isFirst || disabled}
+                >
+                  Mover arriba
+                </MenuItem>
+                <MenuItem
+                  icon={<ArrowDownIcon className="w-4 h-4" />}
+                  onClick={() => { setMenuOpen(false); onMoveDown(); }}
+                  disabled={isLast || disabled}
+                >
+                  Mover abajo
+                </MenuItem>
+                <div className="h-px bg-ink/5 my-1" />
+                {reserved ? (
+                  <MenuItem icon={<UnreserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onRelease(); }}>
+                    Liberar reserva
+                  </MenuItem>
+                ) : (
+                  <MenuItem icon={<ReserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onReserve(); }}>
+                    Apartar a nombre de…
+                  </MenuItem>
+                )}
+                <div className="h-px bg-ink/5 my-1" />
+                <MenuItem
+                  icon={<TrashIcon className="w-4 h-4" />}
+                  onClick={() => { setMenuOpen(false); onDelete(); }}
+                  danger
+                >
+                  Eliminar
+                </MenuItem>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -495,61 +548,6 @@ function GiftCard({
               </div>
             </motion.div>
           </div>
-
-          {/* Desktop dropdown — positioned via the trigger's bounding rect. */}
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.96 }}
-            transition={{ duration: 0.15 }}
-            role="menu"
-            className="hidden sm:block fixed z-50 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden py-1"
-            style={(() => {
-              const rect = menuRef.current?.getBoundingClientRect();
-              if (!rect) return { top: -9999, right: 16 } as React.CSSProperties;
-              const top = rect.bottom + 8;
-              const right = Math.max(16, window.innerWidth - rect.right);
-              return { top, right } as React.CSSProperties;
-            })()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MenuItem icon={<EditIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
-              Editar
-            </MenuItem>
-            <div className="h-px bg-ink/5 my-1" />
-            <MenuItem
-              icon={<ArrowUpIcon className="w-4 h-4" />}
-              onClick={() => { setMenuOpen(false); onMoveUp(); }}
-              disabled={isFirst || disabled}
-            >
-              Mover arriba
-            </MenuItem>
-            <MenuItem
-              icon={<ArrowDownIcon className="w-4 h-4" />}
-              onClick={() => { setMenuOpen(false); onMoveDown(); }}
-              disabled={isLast || disabled}
-            >
-              Mover abajo
-            </MenuItem>
-            <div className="h-px bg-ink/5 my-1" />
-            {reserved ? (
-              <MenuItem icon={<UnreserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onRelease(); }}>
-                Liberar reserva
-              </MenuItem>
-            ) : (
-              <MenuItem icon={<ReserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onReserve(); }}>
-                Apartar a nombre de…
-              </MenuItem>
-            )}
-            <div className="h-px bg-ink/5 my-1" />
-            <MenuItem
-              icon={<TrashIcon className="w-4 h-4" />}
-              onClick={() => { setMenuOpen(false); onDelete(); }}
-              danger
-            >
-              Eliminar
-            </MenuItem>
-          </motion.div>
         </>
       )}
     </AnimatePresence>
