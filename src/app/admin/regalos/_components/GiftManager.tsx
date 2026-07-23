@@ -805,22 +805,25 @@ function ReserveModal({
         </header>
 
         <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar invitado…"
             aria-label="Buscar invitado"
-            autoFocus
-            className="w-full pl-10 pr-4 py-2.5 bg-ivory-50 border border-ink/10 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta/40"
+            // No autoFocus — on mobile that pops the iOS keyboard and hides the
+            // results list below. The user taps the field when they're ready.
+            className="w-full pl-10 pr-4 py-3 sm:py-2.5 bg-ivory-50 border border-ink/10 rounded-full text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta/40"
           />
         </div>
 
         <ul
           role="listbox"
           aria-label="Invitados"
-          className="max-h-72 overflow-y-auto border border-ink/10 rounded-2xl divide-y divide-ink/5"
+          // Smaller max-height on mobile so the list doesn't push the input
+          // and footer off-screen when the keyboard is open.
+          className="max-h-48 sm:max-h-72 overflow-y-auto border border-ink/10 rounded-2xl divide-y divide-ink/5"
         >
           {filtered.length === 0 ? (
             <li className="p-4 text-center text-sm text-ink-muted">
@@ -837,12 +840,14 @@ function ReserveModal({
                     aria-selected={selected}
                     onClick={() => setPickedId(inv.id)}
                     className={[
-                      'cursor-pointer w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
-                      selected ? 'bg-terracotta/10' : 'hover:bg-ivory-100',
+                      // 44px+ tap targets per Apple HIG. py-3.5 on mobile,
+                      // py-3 on desktop where density matters more.
+                      'cursor-pointer w-full flex items-center justify-between px-4 py-3.5 sm:py-3 text-left transition-colors min-h-[44px]',
+                      selected ? 'bg-terracotta/10 text-terracotta-dark font-semibold' : 'hover:bg-ivory-100',
                     ].join(' ')}
                   >
-                    <span className="font-medium">{inv.guestName}</span>
-                    {selected && <CheckIcon className="w-4 h-4 text-terracotta" />}
+                    <span className="font-medium truncate min-w-0">{inv.guestName}</span>
+                    {selected && <CheckIcon className="w-4 h-4 text-terracotta shrink-0 ml-2" />}
                   </button>
                 </li>
               );
@@ -944,7 +949,7 @@ function ModalShell({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
+      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/40"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -956,8 +961,13 @@ function ModalShell({
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
         className={[
-          'modal-mobile-bottom w-full bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90vh] overflow-y-auto',
-          wide ? 'max-w-xl' : 'max-w-lg',
+          // Mobile: bottom sheet, padded for safe area, max-height respects
+          // keyboard via dvh (dynamic viewport height, Safari 15.4+). Falls
+          // back to vh on older browsers.
+          // Desktop: centered, max-height 90vh, normal padding.
+          'modal-mobile-bottom w-full bg-ivory-50 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-lift',
+          'max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto',
+          wide ? 'sm:max-w-xl' : 'sm:max-w-lg',
         ].join(' ')}
       >
         {children}

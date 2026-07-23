@@ -455,8 +455,8 @@ function InvitationCard({
         layout
         transition={{ duration: 0.2 }}
         className={[
-          'group relative bg-white rounded-2xl shadow-soft overflow-hidden transition-all',
-          isSelected ? 'ring-2 ring-terracotta/40' : 'hover:shadow-lift',
+          'group relative bg-white rounded-2xl shadow-soft overflow-hidden transition-all touch-manipulation',
+          isSelected ? 'ring-2 ring-terracotta/40' : 'hover:shadow-lift active:scale-[0.995]',
           invitation.status === 'DECLINED' ? 'opacity-70' : '',
         ].join(' ')}
       >
@@ -475,38 +475,45 @@ function InvitationCard({
 
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            {/* Top row: name + status */}
-            <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
-              <h3 className="font-display text-lg sm:text-xl text-ink truncate min-w-0 max-w-full">
+            {/* Top row: name + status badge. On mobile the badge moves to the
+                right edge for a cleaner hierarchy (name = primary, status = secondary). */}
+            <div className="flex items-start justify-between gap-2 sm:items-baseline sm:gap-3 sm:flex-wrap">
+              <h3 className="font-display text-lg sm:text-xl text-ink leading-tight truncate min-w-0 flex-1">
                 {invitation.guestName}
               </h3>
-              <StatusBadge status={invitation.status} />
+              <div className="shrink-0">
+                <StatusBadge status={invitation.status} />
+              </div>
             </div>
 
-            {/* Meta row: cupos + opened flag — on its own line on mobile */}
-            <div className="flex items-center gap-2 sm:gap-3 mt-1.5 flex-wrap text-xs">
-              <span className="inline-flex items-center gap-1 bg-ivory-100 text-ink-soft px-2.5 py-1 rounded-full">
-                <UsersIcon className="w-3 h-3" />
+            {/* Meta row: cupos + opened/attention flag as proper chips.
+                Bigger padding on mobile for easier reading at arm's length. */}
+            <div className="flex items-center gap-2 flex-wrap mt-2.5 text-xs">
+              <span className="inline-flex items-center gap-1.5 bg-ivory-100 text-ink-soft px-2.5 py-1.5 sm:py-1 rounded-full font-medium">
+                <UsersIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 {invitation.attending != null ? `${invitation.attending} / ${invitation.cupos}` : `${invitation.cupos} cupos`}
               </span>
               {invitation.firstOpenedAt ? (
-                <span className="inline-flex items-center gap-1 text-sage-dark" title={`Abierto el ${new Date(invitation.firstOpenedAt).toLocaleDateString('es-CO')}`}>
-                  <CheckIcon className="w-3 h-3" />
-                  abierto
+                <span
+                  className="inline-flex items-center gap-1.5 bg-sage/15 text-sage-dark px-2.5 py-1.5 sm:py-1 rounded-full font-medium"
+                  title={`Abierto el ${new Date(invitation.firstOpenedAt).toLocaleDateString('es-CO')}`}
+                >
+                  <CheckIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                  Abierto
                 </span>
               ) : showAttentionBadge ? (
-                <span className="inline-flex items-center gap-1 text-terracotta-dark font-medium">
-                  <BellIcon className="w-3 h-3" />
-                  no abrió
+                <span className="inline-flex items-center gap-1.5 bg-terracotta/15 text-terracotta-dark px-2.5 py-1.5 sm:py-1 rounded-full font-semibold">
+                  <BellIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                  No abrió
                 </span>
               ) : null}
             </div>
 
             {/* Phone + notes */}
             {(invitation.phone || invitation.notes) && (
-              <p className="text-xs text-ink-muted mt-2 truncate">
-                {invitation.phone && <span>{invitation.phone}</span>}
-                {invitation.phone && invitation.notes && <span className="mx-2">·</span>}
+              <p className="text-xs text-ink-muted mt-2.5 leading-relaxed">
+                {invitation.phone && <span className="font-medium text-ink-soft">{invitation.phone}</span>}
+                {invitation.phone && invitation.notes && <span className="mx-1.5 text-ink-muted/40">·</span>}
                 {invitation.notes && <em className="italic">"{invitation.notes}"</em>}
               </p>
             )}
@@ -701,9 +708,25 @@ function StatusBadge({ status }: { status: 'PENDING' | 'CONFIRMED' | 'DECLINED' 
       ? 'bg-sage/15 text-sage-dark'
       : status === 'DECLINED'
       ? 'bg-ink/10 text-ink-muted'
-      : 'bg-terracotta/10 text-terracotta-dark';
+      : 'bg-terracotta/15 text-terracotta-dark';
   return (
-    <span className={['inline-flex px-2.5 py-1 rounded-full text-xs font-medium', cls].join(' ')}>
+    <span
+      className={[
+        'inline-flex items-center gap-1 px-3 py-1 sm:px-2.5 sm:py-1 rounded-full text-[0.7rem] sm:text-xs font-semibold uppercase tracking-wider',
+        cls,
+      ].join(' ')}
+    >
+      <span
+        className={[
+          'w-1.5 h-1.5 rounded-full',
+          status === 'CONFIRMED' && 'bg-sage',
+          status === 'PENDING' && 'bg-terracotta',
+          status === 'DECLINED' && 'bg-ink-muted',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-hidden
+      />
       {rsvpStatusLabel(status)}
     </span>
   );
