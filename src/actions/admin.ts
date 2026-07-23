@@ -26,8 +26,8 @@ import {
   upsertMenuItemSchema,
 } from '@/lib/validation';
 
-export type AdminActionResult =
-  | { ok: true; data?: unknown }
+export type AdminActionResult<T = unknown> =
+  | { ok: true; data?: T }
   | { ok: false; error: string };
 
 function ensureAdmin(): boolean {
@@ -35,7 +35,7 @@ function ensureAdmin(): boolean {
   return isAdminAuthed(c);
 }
 
-function fail(error: string): AdminActionResult {
+function fail<T = unknown>(error: string): AdminActionResult<T> {
   return { ok: false, error };
 }
 
