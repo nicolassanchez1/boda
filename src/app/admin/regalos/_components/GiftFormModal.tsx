@@ -62,9 +62,10 @@ export default function GiftFormModal({
   const [dragOver, setDragOver] = useState(false);
 
   // Auto-focus first field on mount.
-  useEffect(() => {
-    nameRef.current?.focus();
-  }, []);
+  // NOTE: We intentionally do NOT auto-focus the name input on mount.
+  // On mobile, focusing an input opens the iOS keyboard, which in turn
+  // shrinks the visual viewport and pushes the modal off-screen. Letting
+  // the user choose when to tap a field keeps the modal stable on open.
 
   // Reset image-broken state whenever URL changes.
   useEffect(() => {
@@ -121,31 +122,20 @@ export default function GiftFormModal({
   // Scroll the focused field into view when the keyboard appears, so the
   // user can see what they're typing instead of having the input hidden
   // behind the keyboard.
-  useEffect(() => {
-    const onFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT'
-      ) {
-        // Defer to next frame so the keyboard has time to push the viewport.
-        requestAnimationFrame(() => {
-          target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        });
-      }
-    };
-    document.addEventListener('focusin', onFocusIn);
-    return () => document.removeEventListener('focusin', onFocusIn);
-  }, []);
+  // NOTE: We intentionally do NOT auto-scroll focused inputs into view.
+  // iOS already handles scroll-into-view natively when the keyboard opens,
+  // and our custom scrollIntoView was the one pushing the modal off-screen.
+  // We rely on the visualViewport listener above to clamp the modal's height
+  // to the visible area instead, so the modal stays put and the user just
+  // sees the keyboard pop up below it.
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!name.trim()) {
       setError('Dale un nombre al regalo.');
-      nameRef.current?.focus();
+      // No focus() here — on mobile that would pop the keyboard and shove
+      // the modal off-screen. The error banner tells the user what's wrong.
       return;
     }
     setSaving(true);
@@ -276,7 +266,7 @@ export default function GiftFormModal({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-2xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift flex flex-col max-h-[var(--modal-max-h,92vh)] sm:max-h-[90vh] overflow-hidden"
       >
-        <form id="gift-form" onSubmit={submit} className="flex flex-col flex-1 min-h-0 [&_input]:[scroll-margin-top:5rem] [&_textarea]:[scroll-margin-top:5rem]">
+        <form id="gift-form" onSubmit={submit} className="flex flex-col flex-1 min-h-0">
           {/* ─── Header ─── */}
           <header className="px-5 sm:px-8 pt-5 sm:pt-6 pb-4 border-b border-ink/10 shrink-0">
             <div className="flex items-start justify-between gap-3 sm:gap-4">
@@ -519,7 +509,12 @@ export default function GiftFormModal({
               <button
                 type="submit"
                 disabled={saving || !name.trim()}
-                className="cursor-pointer inline-flex items-center justify-center gap-2 flex-1 sm:flex-initial px-6 py-2.5 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors disabled:opacity-50"
+                className={[
+                  'cursor-pointer inline-flex items-center justify-center gap-2 flex-1 sm:flex-initial px-6 py-2.5 rounded-full font-medium transition-colors disabled:cursor-not-allowed',
+                  saving
+                    ? 'bg-terracotta-dark text-white'
+                    : 'bg-terracotta text-white hover:bg-terracotta-dark disabled:opacity-50',
+                ].join(' ')}
               >
                 {saving && <SpinnerIcon className="w-4 h-4 animate-spin" />}
                 {saving ? 'Guardando…' : mode === 'add' ? 'Crear regalo' : 'Guardar cambios'}

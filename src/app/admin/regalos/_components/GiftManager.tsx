@@ -56,6 +56,10 @@ export function List({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Track which specific gift is being mutated so the right card shows a
+  // loader. `pending` alone is too coarse — we don't know *which* card to
+  // show the spinner on.
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditState>({ mode: 'closed' });
   const [reserveFor, setReserveFor] = useState<GiftWithReservation | null>(null);
   const [deleteFor, setDeleteFor] = useState<GiftWithReservation | null>(null);
@@ -97,26 +101,41 @@ export function List({
     const reordered = [...gifts];
     const [removed] = reordered.splice(idx, 1);
     reordered.splice(newIdx, 0, removed);
+    setBusyId(id);
     startTransition(async () => {
-      await reorderGifts({ ids: reordered.map((g) => g.id) });
-      router.refresh();
+      try {
+        await reorderGifts({ ids: reordered.map((g) => g.id) });
+        router.refresh();
+      } finally {
+        setBusyId(null);
+      }
     });
   };
 
   const confirmDelete = (gift: GiftWithReservation) => {
     setDeleteFor(null);
+    setBusyId(gift.id);
     startTransition(async () => {
-      const result = await deleteGift({ id: gift.id });
-      if (!result.ok) alert(result.error);
-      router.refresh();
+      try {
+        const result = await deleteGift({ id: gift.id });
+        if (!result.ok) alert(result.error);
+        router.refresh();
+      } finally {
+        setBusyId(null);
+      }
     });
   };
 
   const confirmRelease = (gift: GiftWithReservation) => {
+    setBusyId(gift.id);
     startTransition(async () => {
-      const result = await manualReserveGift({ giftId: gift.id, invitationId: null });
-      if (!result.ok) alert(result.error);
-      router.refresh();
+      try {
+        const result = await manualReserveGift({ giftId: gift.id, invitationId: null });
+        if (!result.ok) alert(result.error);
+        router.refresh();
+      } finally {
+        setBusyId(null);
+      }
     });
   };
 
@@ -178,7 +197,8 @@ export function List({
                     onDelete={() => setDeleteFor(g)}
                     onMoveUp={() => move(g.id, -1)}
                     onMoveDown={() => move(g.id, 1)}
-                    disabled={pending}
+                    disabled={pending || busyId === g.id}
+                    busy={busyId === g.id}
                   />
                 ))}
               </div>
@@ -205,7 +225,8 @@ export function List({
                     onDelete={() => setDeleteFor(g)}
                     onMoveUp={() => move(g.id, -1)}
                     onMoveDown={() => move(g.id, 1)}
-                    disabled={pending}
+                    disabled={pending || busyId === g.id}
+                    busy={busyId === g.id}
                   />
                 ))}
               </div>
@@ -279,6 +300,7 @@ function GiftCard({
   onMoveUp,
   onMoveDown,
   disabled,
+  busy = false,
 }: {
   gift: GiftWithReservation;
   isFirst: boolean;
@@ -290,6 +312,7 @@ function GiftCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
   disabled: boolean;
+  busy?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -327,6 +350,36 @@ function GiftCard({
         !gift.active ? 'opacity-60' : '',
       ].join(' ')}
     >
+      {/* Busy overlay — covers the card while a reorder/delete/release is
+          in flight. Tells the user something is happening (the round-trip
+          can take a couple seconds on Neon's free tier). */}
+      <AnimatePresence>
+        {busy && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm flex items-center justify-center gap-2 text-xs text-ink-muted rounded-2xl"
+            role="status"
+            aria-live="polite"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className="w-4 h-4 animate-spin text-terracotta"
+              aria-hidden
+            >
+              <path d="M12 3 A9 9 0 0 1 21 12" />
+            </svg>
+            <span>Guardando…</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Thumbnail — square on mobile (smaller), full card-width on desktop */}
       <div className="relative w-24 h-24 sm:w-auto sm:aspect-square shrink-0 bg-ivory-100 overflow-hidden">
         {gift.imageUrl ? (
