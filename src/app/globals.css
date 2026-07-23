@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ink: #2a2520;
+  --ink-soft: #4a423a;
+  --ink-muted: #7a6f64;
+  --ivory: #fdfbf7;
+  --ivory-100: #f7f1e6;
+  --ivory-200: #efe6d2;
+  --terracotta: #b85c38;
+  --terracotta-dark: #8d4327;
+  --sage: #8a9a7b;
+  --gold: #c8a96a;
+  color-scheme: light;
+}
+
+html,
+body {
+  background: theme('colors.ivory.50');
+  color: theme('colors.ink.DEFAULT');
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle paper grain overlay — gives the ivory a tactile, printed feel. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.14 0 0 0 0 0.12 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Lifts the real content above the grain. */
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  button,
+  a,
+  [role='button'] {
+    min-height: 44px;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  .display-xl {
+    font-family: var(--font-display);
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+  }
+  /* Italic display — for editorial accents ("Somos…", "Te extrañamos…") */
+  .display-italic {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.1;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: theme('colors.terracotta.DEFAULT');
+  }
+  .hairline {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      theme('colors.ink.muted') 30%,
+      theme('colors.ink.muted') 70%,
+      transparent
+    );
+    opacity: 0.25;
+  }
+  /* Gold rule — used as a refined horizontal accent. */
+  .gold-rule {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--gold) 25%,
+      var(--gold) 75%,
+      transparent
+    );
+    opacity: 0.6;
+  }
+  /* Small caps body — for editorial labels. */
+  .smallcaps {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Refined focus ring — terracotta, soft, not corporate blue. */
+*:focus-visible {
+  outline: 2px solid theme('colors.terracotta.DEFAULT');
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Page-load reveal. Used by elements with `animate-fade-up` + a delay. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  opacity: 0;
+  animation: fade-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Subtle ink spread on hover for the editorial buttons. */
+@keyframes ink-spread {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}

@@ -1,0 +1,94 @@
+// Prisma schema — Mella wedding app
+//
+// Invitation (magic link) -> Attendees (1..cupos) -> each picks a MenuItem (main + drink)
+// Gift rows are shared across all invitations. A gift is either available (reservedById = null)
+// or reserved by exactly one invitation. The reservation itself is enforced atomically
+// in src/actions/guest.ts via prisma.gift.updateMany — never read-then-write.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Neon Postgres on Vercel:
+//   DATABASE_URL — pooled connection (pgBouncer) used by the running app at runtime.
+//   DIRECT_URL  — direct (unpooled) connection, required for `prisma migrate`.
+// Neon docs: https://www.prisma.io/docs/orm/overview/databases/neon
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum RsvpStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
+enum MenuType {
+  MAIN_DISH
+  DRINK
+}
+
+model Invitation {
+  id            String       @id @default(cuid())
+  token         String       @unique // 8 chars, URL-safe (e.g. "a7f3k9x2")
+  guestName     String       // "Carlos e hijos"
+  cupos         Int          // total seats assigned; UI/API both enforce <= cupos
+  phone         String?      // for WhatsApp follow-up; optional
+  notes         String?      // admin-only internal notes
+  status        RsvpStatus   @default(PENDING)
+  attending     Int?         // count attending (0..cupos); null until response
+  respondedAt   DateTime?
+  firstOpenedAt DateTime?    // set once when the guest first opens their link
+  createdAt     DateTime     @default(now())
+
+  attendees Attendee[]
+  gifts     Gift[]
+
+  @@index([status])
+  @@index([firstOpenedAt])
+}
+
+model Attendee {
+  id           String @id @default(cuid())
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+
+  name         String // free text typed by the guest
+  mainDishId   String?
+  mainDish     MenuItem? @relation("AttendeeMainDish", fields: [mainDishId], references: [id])
+  drinkId      String?
+  drink        MenuItem? @relation("AttendeeDrink", fields: [drinkId], references: [id])
+  dietaryNotes String? // allergies, vegetarian, etc.
+}
+
+model MenuItem {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  type        MenuType
+  active      Boolean @default(true)
+  order       Int     @default(0)
+
+  mainDishAttendees Attendee[] @relation("AttendeeMainDish")
+  drinkAttendees    Attendee[] @relation("AttendeeDrink")
+
+  @@index([type, order])
+}
+
+model Gift {
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+  imageUrl     String?
+  storeUrl     String?
+  order        Int         @default(0)
+  active       Boolean     @default(true)
+  reservedById String?
+  reservedBy   Invitation? @relation(fields: [reservedById], references: [id])
+  reservedAt   DateTime?
+
+  @@index([order])
+  @@index([reservedById])
+}
