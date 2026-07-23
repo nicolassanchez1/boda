@@ -64,8 +64,10 @@ export default async function InvitadosPage({ searchParams }: { searchParams: Se
                 {stats.total === 1 ? 'invitación' : 'invitaciones'}
               </span>
             </h1>
-            {/* Quick pulse: what's happening right now. */}
-            <p className="mt-3 text-sm text-ink-soft leading-relaxed">
+            {/* Quick pulse — desktop only. On mobile the stats row below
+                carries the same info, and /admin/resumen has the full
+                breakdown, so we skip it here to reduce vertical noise. */}
+            <p className="hidden sm:block mt-3 text-sm text-ink-soft leading-relaxed">
               {stats.confirmed > 0 && (
                 <>
                   <strong className="text-sage-dark font-medium">
@@ -122,25 +124,32 @@ export default async function InvitadosPage({ searchParams }: { searchParams: Se
       </section>
 
       {/* Filters section — wrapped in a card so it reads as a distinct unit. */}
-      <section className="bg-white rounded-2xl shadow-soft p-4 sm:p-5">
-        <header className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
-          <p className="smallcaps text-ink-muted">Filtrar</p>
+      <section className="bg-white rounded-2xl shadow-soft p-5 sm:p-5">
+        <header className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-baseline gap-2">
+            <p className="smallcaps text-ink-muted">Filtrar</p>
+            {isFiltered && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-terracotta/10 text-terracotta-dark text-[0.65rem] font-semibold tracking-wider uppercase">
+                Activo
+              </span>
+            )}
+          </div>
           {isFiltered && (
             <a
               href="/admin"
-              className="text-xs text-terracotta-dark hover:text-terracotta transition-colors inline-flex items-center gap-1"
+              className="cursor-pointer text-xs text-terracotta-dark hover:text-terracotta transition-colors inline-flex items-center gap-1.5 font-medium"
             >
-              <span>Limpiar filtros</span>
+              <span>Limpiar</span>
               <svg
-                viewBox="0 0 20 20"
+                viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.75"
+                strokeWidth="2"
                 strokeLinecap="round"
                 className="w-3 h-3"
                 aria-hidden
               >
-                <path d="M6 6 L14 14 M14 6 L6 14" />
+                <path d="M4 4 L12 12 M12 4 L4 12" />
               </svg>
             </a>
           )}

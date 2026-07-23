@@ -34,12 +34,28 @@ export default function FilterBar({ current }: { current: Filters }) {
             key={chip.label}
             href={href}
             className={clsx(
-              'text-sm px-4 py-2 rounded-full border transition-colors shrink-0 snap-start',
+              // Bigger tap target on mobile (44px-ish), tighter on desktop.
+              'inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 sm:py-2 rounded-full border transition-all shrink-0 snap-start',
+              'active:scale-[0.97]',
               isActive
-                ? 'bg-ink text-white border-ink'
-                : 'bg-white border-ink/15 text-ink-soft hover:text-ink hover:border-ink/30',
+                ? 'bg-terracotta text-white border-terracotta shadow-soft'
+                : 'bg-white border-ink/20 text-ink-soft hover:text-ink hover:border-ink/40 hover:bg-ivory-100',
             )}
           >
+            {isActive && (
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-3 h-3 -ml-0.5"
+                aria-hidden
+              >
+                <path d="M3 8 L6.5 11.5 L13 5" />
+              </svg>
+            )}
             {chip.label}
           </Link>
         );
