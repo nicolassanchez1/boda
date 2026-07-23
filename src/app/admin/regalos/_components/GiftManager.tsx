@@ -316,6 +316,7 @@ function GiftCard({
   const reserved = !!gift.reservedBy;
 
   return (
+    <>
     <motion.article
       layout
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
@@ -358,7 +359,10 @@ function GiftCard({
           )}
         </div>
 
-        {/* Action menu trigger — on the image (desktop) or in the row (mobile). */}
+        {/* Action menu trigger — sits in the row on mobile (overlaid on the
+            image area), in the top-right corner on desktop. The dropdown is
+            rendered as a portal-style bottom sheet on mobile and a normal
+            dropdown on desktop, so it's always reachable. */}
         <div className="absolute top-2 right-2 sm:top-3 sm:right-3" ref={menuRef}>
           <button
             type="button"
@@ -366,59 +370,10 @@ function GiftCard({
             aria-label="Más acciones"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="cursor-pointer w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-white/90 backdrop-blur shadow-soft flex items-center justify-center text-ink hover:bg-white transition-colors"
+            className="cursor-pointer w-10 h-10 rounded-full bg-white/95 backdrop-blur shadow-soft flex items-center justify-center text-ink hover:bg-white transition-colors"
           >
             <DotsIcon className="w-4 h-4" />
           </button>
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                transition={{ duration: 0.15 }}
-                role="menu"
-                className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden z-10 py-1"
-              >
-                <MenuItem icon={<EditIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
-                  Editar
-                </MenuItem>
-                <div className="h-px bg-ink/5 my-1" />
-                <MenuItem
-                  icon={<ArrowUpIcon className="w-4 h-4" />}
-                  onClick={() => { setMenuOpen(false); onMoveUp(); }}
-                  disabled={isFirst || disabled}
-                >
-                  Mover arriba
-                </MenuItem>
-                <MenuItem
-                  icon={<ArrowDownIcon className="w-4 h-4" />}
-                  onClick={() => { setMenuOpen(false); onMoveDown(); }}
-                  disabled={isLast || disabled}
-                >
-                  Mover abajo
-                </MenuItem>
-                <div className="h-px bg-ink/5 my-1" />
-                {reserved ? (
-                  <MenuItem icon={<UnreserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onRelease(); }}>
-                    Liberar reserva
-                  </MenuItem>
-                ) : (
-                  <MenuItem icon={<ReserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onReserve(); }}>
-                    Apartar a nombre de…
-                  </MenuItem>
-                )}
-                <div className="h-px bg-ink/5 my-1" />
-                <MenuItem
-                  icon={<TrashIcon className="w-4 h-4" />}
-                  onClick={() => { setMenuOpen(false); onDelete(); }}
-                  danger
-                >
-                  Eliminar
-                </MenuItem>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
 
@@ -475,6 +430,130 @@ function GiftCard({
         </div>
       </div>
     </motion.article>
+
+    {/* Action menu — bottom sheet on mobile (always reachable, never clipped),
+        anchored dropdown on desktop. Rendered outside the article to escape
+        its stacking context. */}
+    <AnimatePresence>
+      {menuOpen && (
+        <>
+          {/* Mobile bottom sheet */}
+          <div
+            className="sm:hidden fixed inset-0 z-50 flex items-end justify-center bg-ink/40"
+            onClick={() => setMenuOpen(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              role="menu"
+              className="w-full bg-ivory-50 rounded-t-3xl shadow-lift overflow-hidden pb-[env(safe-area-inset-bottom)]"
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <span className="w-10 h-1 rounded-full bg-ink/15" />
+              </div>
+              <div className="px-2 pt-1 pb-3">
+                <p className="px-4 pt-2 pb-3 text-sm text-ink-soft font-display italic truncate border-b border-ink/5">
+                  {gift.name}
+                </p>
+                <SheetItem icon={<EditIcon className="w-5 h-5" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
+                  Editar regalo
+                </SheetItem>
+                <div className="h-px bg-ink/5 mx-3" />
+                <SheetItem
+                  icon={<ArrowUpIcon className="w-5 h-5" />}
+                  onClick={() => { setMenuOpen(false); onMoveUp(); }}
+                  disabled={isFirst || disabled}
+                >
+                  Mover arriba
+                </SheetItem>
+                <SheetItem
+                  icon={<ArrowDownIcon className="w-5 h-5" />}
+                  onClick={() => { setMenuOpen(false); onMoveDown(); }}
+                  disabled={isLast || disabled}
+                >
+                  Mover abajo
+                </SheetItem>
+                <div className="h-px bg-ink/5 mx-3" />
+                {reserved ? (
+                  <SheetItem icon={<UnreserveIcon className="w-5 h-5" />} onClick={() => { setMenuOpen(false); onRelease(); }}>
+                    Liberar reserva
+                  </SheetItem>
+                ) : (
+                  <SheetItem icon={<ReserveIcon className="w-5 h-5" />} onClick={() => { setMenuOpen(false); onReserve(); }}>
+                    Apartar a nombre de…
+                  </SheetItem>
+                )}
+                <div className="h-px bg-ink/5 mx-3" />
+                <SheetItem icon={<TrashIcon className="w-5 h-5" />} onClick={() => { setMenuOpen(false); onDelete(); }} danger>
+                  Eliminar regalo
+                </SheetItem>
+                <div className="h-px bg-ink/5 mx-3 my-1" />
+                <SheetItem onClick={() => setMenuOpen(false)}>Cancelar</SheetItem>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Desktop dropdown — positioned via the trigger's bounding rect. */}
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+            transition={{ duration: 0.15 }}
+            role="menu"
+            className="hidden sm:block fixed z-50 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden py-1"
+            style={(() => {
+              const rect = menuRef.current?.getBoundingClientRect();
+              if (!rect) return { top: -9999, right: 16 } as React.CSSProperties;
+              const top = rect.bottom + 8;
+              const right = Math.max(16, window.innerWidth - rect.right);
+              return { top, right } as React.CSSProperties;
+            })()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MenuItem icon={<EditIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
+              Editar
+            </MenuItem>
+            <div className="h-px bg-ink/5 my-1" />
+            <MenuItem
+              icon={<ArrowUpIcon className="w-4 h-4" />}
+              onClick={() => { setMenuOpen(false); onMoveUp(); }}
+              disabled={isFirst || disabled}
+            >
+              Mover arriba
+            </MenuItem>
+            <MenuItem
+              icon={<ArrowDownIcon className="w-4 h-4" />}
+              onClick={() => { setMenuOpen(false); onMoveDown(); }}
+              disabled={isLast || disabled}
+            >
+              Mover abajo
+            </MenuItem>
+            <div className="h-px bg-ink/5 my-1" />
+            {reserved ? (
+              <MenuItem icon={<UnreserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onRelease(); }}>
+                Liberar reserva
+              </MenuItem>
+            ) : (
+              <MenuItem icon={<ReserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onReserve(); }}>
+                Apartar a nombre de…
+              </MenuItem>
+            )}
+            <div className="h-px bg-ink/5 my-1" />
+            <MenuItem
+              icon={<TrashIcon className="w-4 h-4" />}
+              onClick={() => { setMenuOpen(false); onDelete(); }}
+              danger
+            >
+              Eliminar
+            </MenuItem>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 
@@ -509,6 +588,45 @@ function MenuItem({
       <span className={disabled ? 'text-ink-muted/40' : danger ? 'text-terracotta' : 'text-ink-muted'}>
         {icon}
       </span>
+      {children}
+    </button>
+  );
+}
+
+// Bigger touch targets for the mobile bottom sheet (min ~56px tall).
+function SheetItem({
+  icon,
+  children,
+  onClick,
+  danger,
+  disabled,
+}: {
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className={[
+        'w-full flex items-center gap-3 px-4 min-h-[52px] text-base text-left transition-colors',
+        disabled
+          ? 'text-ink-muted/40 cursor-not-allowed'
+          : danger
+          ? 'text-terracotta-dark hover:bg-terracotta/10 cursor-pointer'
+          : 'text-ink hover:bg-ivory-100 cursor-pointer',
+      ].join(' ')}
+    >
+      {icon && (
+        <span className={disabled ? 'text-ink-muted/40' : danger ? 'text-terracotta' : 'text-ink-muted'}>
+          {icon}
+        </span>
+      )}
       {children}
     </button>
   );

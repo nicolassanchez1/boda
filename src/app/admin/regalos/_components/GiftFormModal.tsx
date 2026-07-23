@@ -1,25 +1,23 @@
 'use client';
 
-// Polished add/edit gift modal.
+// Add / edit gift modal.
 //
 // Design notes:
 //   - 3-zone layout: sticky header / scrollable body / sticky footer.
-//   - Image section is the visual hero — large preview / drop zone, then URL
-//     field with the "Traer imagen" helper inline.
-//   - Form fields use a generous 44px+ height, clear focus rings, and
-//     character counters for the free-text fields.
-//   - Paste an image from the clipboard directly into the drop zone.
-//   - Cmd/Ctrl + Enter to save, Esc to close.
-//   - Required vs optional fields are visually distinct (asterisk vs "Opcional").
+//   - Image is the visual hero — large 4:3 preview with a clear "add /
+//     replace" affordance, not a generic upload widget.
+//   - Form fields are generous and have explicit labels + counters.
+//   - The "Traer imagen" helper is presented as an inline secondary action
+//     below the URL field, not a primary button next to it.
+//   - Cmd/Ctrl + Enter saves, Esc closes.
+//   - Required vs optional fields are visually distinct (asterisk vs label).
 
 import {
   useState,
-  useTransition,
   useRef,
   useEffect,
   type DragEvent,
   type ClipboardEvent,
-  type KeyboardEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { Prisma } from '@prisma/client';
@@ -43,8 +41,6 @@ export default function GiftFormModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  // Explicit saving state — React 18's useTransition doesn't toggle `pending`
-  // during awaits, so we drive the loader ourselves for reliable visual feedback.
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchingImage, setFetchingImage] = useState(false);
@@ -61,19 +57,16 @@ export default function GiftFormModal({
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  // Auto-focus first field on mount.
   useEffect(() => {
     nameRef.current?.focus();
   }, []);
 
-  // Reset image-broken state whenever URL changes.
   useEffect(() => {
     setImageBroken(false);
   }, [imageUrl]);
 
-  // Global keyboard shortcuts: Esc closes, Cmd/Ctrl+Enter saves.
   useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
@@ -114,7 +107,6 @@ export default function GiftFormModal({
       onClose();
       router.refresh();
     } catch (err) {
-      // Surface unexpected errors instead of swallowing them silently.
       // eslint-disable-next-line no-console
       console.error('[GiftFormModal] save failed:', err);
       setError(
@@ -126,21 +118,17 @@ export default function GiftFormModal({
     }
   };
 
-  const [extracted, setExtracted] = useState<{
-    title?: string;
-  } | null>(null);
+  const [extracted, setExtracted] = useState<{ title?: string } | null>(null);
 
   const handleFetchImage = () => {
     const candidate = imageUrl.trim() || storeUrl.trim();
     if (!candidate) {
-      setFetchHint('Pega primero la URL del producto en Tienda o URL del producto.');
+      setFetchHint('Pegá primero la URL del producto arriba o abajo.');
       return;
     }
     setFetchHint(null);
     setError(null);
     setFetchingImage(true);
-    // If the admin pasted a product URL into the image field, also save it as the
-    // store URL so they don't have to paste the same link twice.
     if (imageUrl.trim()) {
       setStoreUrl(imageUrl.trim());
     }
@@ -156,15 +144,9 @@ export default function GiftFormModal({
           setImageUrl(data.imageUrl);
           setFetchHint(null);
         }
-        // Always auto-fill name (overwrite) — admin can edit after if needed.
         if (data?.title) {
           setName(data.title);
-        }
-        // Show extracted metadata (title only — price was removed per request).
-        if (data?.title) {
-          setExtracted({
-            title: data.title,
-          });
+          setExtracted({ title: data.title });
         } else {
           setExtracted(null);
         }
@@ -172,7 +154,6 @@ export default function GiftFormModal({
       .finally(() => setFetchingImage(false));
   };
 
-  // Drag-and-drop a local image file → upload as data URL (best-effort, no server).
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
@@ -185,7 +166,6 @@ export default function GiftFormModal({
     reader.readAsDataURL(file);
   };
 
-  // Paste an image from clipboard (Cmd+V anywhere on the modal).
   const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -204,11 +184,16 @@ export default function GiftFormModal({
     }
   };
 
+  const clearImage = () => {
+    setImageUrl('');
+    setImageBroken(false);
+  };
+
   const hasImage = !!imageUrl && !imageBroken;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-ink/50"
+      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/50"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
       onClick={onClose}
       role="dialog"
@@ -216,35 +201,42 @@ export default function GiftFormModal({
       aria-labelledby="gift-form-title"
     >
       <motion.div
-        initial={{ y: 24, opacity: 0 }}
+        initial={{ y: 32, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 24, opacity: 0 }}
+        exit={{ y: 32, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-ivory-50 rounded-3xl shadow-lift flex flex-col max-h-[90vh] overflow-hidden"
+        className="relative w-full max-w-xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift flex flex-col max-h-[92vh] overflow-hidden"
       >
-        <form id="gift-form" onSubmit={submit} className="flex flex-col flex-1 min-h-0">
+        <form
+          id="gift-form"
+          onSubmit={submit}
+          className="flex flex-col flex-1 min-h-0"
+        >
           {/* ─── Header ─── */}
-          <header className="px-6 sm:px-8 pt-6 pb-4 border-b border-ink/10 shrink-0">
-            <div className="flex items-start justify-between gap-4">
-              <div>
+          <header className="px-5 sm:px-7 pt-5 sm:pt-6 pb-4 border-b border-ink/10 shrink-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="eyebrow text-terracotta">
                   {mode === 'add' ? 'Nuevo' : 'Editar'} · Regalos
                 </p>
-                <h2 id="gift-form-title" className="display-xl text-3xl sm:text-4xl mt-1 leading-tight">
-                  {mode === 'add' ? 'Cuéntanos sobre este regalo' : 'Editar regalo'}
+                <h2
+                  id="gift-form-title"
+                  className="display-xl text-2xl sm:text-3xl mt-1 leading-tight"
+                >
+                  {mode === 'add' ? 'Agregar regalo' : 'Editar regalo'}
                 </h2>
-                <p className="text-sm text-ink-muted mt-1">
+                <p className="text-xs sm:text-sm text-ink-muted mt-1.5 leading-relaxed">
                   {mode === 'add'
-                    ? 'Una imagen y un nombre son suficientes. El resto lo puedes agregar después.'
-                    : 'Cambia lo que necesites y guarda.'}
+                    ? 'Una imagen y un nombre son suficientes. El resto es opcional.'
+                    : 'Modificá lo que necesites y guardá los cambios.'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Cerrar"
-                className="cursor-pointer shrink-0 w-10 h-10 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
+                className="cursor-pointer shrink-0 w-11 h-11 -mr-2 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
               >
                 <CloseIcon className="w-5 h-5" />
               </button>
@@ -252,51 +244,77 @@ export default function GiftFormModal({
           </header>
 
           {/* ─── Body ─── */}
-          <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-7">
-            {/* Image section */}
-            <section
-              aria-label="Imagen del regalo"
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onPaste={handlePaste}
-              tabIndex={0}
-              className={[
-                'relative rounded-2xl border-2 border-dashed transition-colors overflow-hidden',
-                dragOver ? 'border-terracotta bg-terracotta/5' : 'border-ink/15 bg-ivory-100/40',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40',
-              ].join(' ')}
-              ref={dropRef}
-            >
-              <div className="aspect-video w-full flex items-center justify-center">
-                {hasImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imageUrl}
-                    alt="Vista previa del regalo"
-                    onError={() => setImageBroken(true)}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                ) : (
-                  <div className="text-center px-6 py-10">
-                    <UploadCloudIcon className="w-12 h-12 mx-auto text-ink-muted/50 mb-3" />
-                    <p className="font-display text-lg text-ink-soft">
-                      {dragOver ? 'Suelta la imagen aquí' : 'Arrastra una imagen o pégala con ⌘V'}
-                    </p>
-                    <p className="text-xs text-ink-muted mt-1">o usa una URL abajo</p>
+          <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 sm:py-6 space-y-5 sm:space-y-6">
+            {/* Image section — the visual hero of the form */}
+            <section aria-label="Imagen del regalo">
+              <Label>Imagen</Label>
+              <div
+                ref={dropRef}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onPaste={handlePaste}
+                tabIndex={0}
+                className={[
+                  'relative rounded-2xl border-2 border-dashed transition-colors overflow-hidden',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40',
+                  dragOver
+                    ? 'border-terracotta bg-terracotta/5'
+                    : 'border-ink/15 bg-white',
+                ].join(' ')}
+              >
+                <div className="aspect-[4/3] w-full flex items-center justify-center bg-ivory-100">
+                  {hasImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imageUrl}
+                      alt="Vista previa del regalo"
+                      onError={() => setImageBroken(true)}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center px-6 py-8">
+                      <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-ivory-200 flex items-center justify-center">
+                        <UploadCloudIcon className="w-7 h-7 text-ink-muted" />
+                      </div>
+                      <p className="font-display text-base sm:text-lg text-ink-soft">
+                        {dragOver ? 'Soltá la imagen aquí' : 'Imagen del regalo'}
+                      </p>
+                      <p className="text-xs text-ink-muted mt-1.5 leading-relaxed">
+                        Pegala con <kbd className="font-mono text-[0.65rem] px-1.5 py-0.5 bg-white border border-ink/15 rounded">⌘V</kbd>{' '}
+                        o arrastrá un archivo
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom toolbar inside the image zone */}
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-ink/10 bg-white/80 backdrop-blur-sm">
+                  <p className="text-xs text-ink-muted truncate">
+                    {hasImage ? 'Imagen cargada' : 'Sin imagen'}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {hasImage && (
+                      <button
+                        type="button"
+                        onClick={clearImage}
+                        className="cursor-pointer text-xs px-3 py-1.5 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors"
+                      >
+                        Quitar
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </section>
 
-            {/* URL field + "Traer imagen" button */}
+            {/* Image URL — secondary, below the image zone. Helper button inline. */}
             <FormField
               label="URL de la imagen"
-              hint={
-                imageUrl && !fetchingImage && !fetchHint
-                  ? 'Funciona con Amazon, MercadoLibre y cualquier sitio con og:image'
-                  : undefined
-              }
+              hint="Pegá el link directo a la imagen (.jpg, .png, .webp)."
               error={fetchHint ?? undefined}
             >
               <div className="flex gap-2">
@@ -307,32 +325,28 @@ export default function GiftFormModal({
                     setImageUrl(e.target.value);
                     setFetchHint(null);
                   }}
-                  placeholder="https://ejemplo.com/foto.jpg"
+                  placeholder="https://…"
                   className="mella-input flex-1 min-w-0"
                 />
                 <button
                   type="button"
                   onClick={handleFetchImage}
                   disabled={fetchingImage}
-                  className="cursor-pointer shrink-0 inline-flex items-center gap-1.5 px-4 py-3 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink-soft transition-colors disabled:opacity-50"
-                  title="Pegar una URL de producto y traer la imagen"
+                  className="cursor-pointer shrink-0 inline-flex items-center gap-1.5 px-4 h-11 rounded-full bg-ivory-100 border border-ink/15 text-ink text-sm font-medium hover:bg-ivory-200 transition-colors disabled:opacity-50"
+                  title="Pegá una URL de producto y trae la imagen + título"
                 >
                   {fetchingImage ? (
-                    <>
-                      <SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
-                      Buscando…
-                    </>
+                    <SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <>
-                      <SparkleIcon className="w-3.5 h-3.5" />
-                      Traer imagen
-                    </>
+                    <SparkleIcon className="w-3.5 h-3.5" />
                   )}
+                  <span className="hidden sm:inline">
+                    {fetchingImage ? 'Buscando' : 'Traer'}
+                  </span>
                 </button>
               </div>
             </FormField>
 
-            {/* Extracted metadata panel — appears after a successful fetch. */}
             <AnimatePresence>
               {extracted?.title && (
                 <motion.div
@@ -342,141 +356,169 @@ export default function GiftFormModal({
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-sage/8 border border-sage/30 rounded-2xl px-4 py-3 flex items-start gap-3">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-sage-dark shrink-0 mt-0.5" aria-hidden>
-                      <path d="M5 12 L10 17 L19 7" />
-                    </svg>
+                  <div className="bg-sage/10 border border-sage/30 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                    <CheckIcon className="w-4 h-4 text-sage-dark shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs uppercase tracking-wider text-sage-dark font-medium">
-                        Título extraído
+                      <p className="text-[0.65rem] tracking-wider uppercase text-sage-dark font-semibold">
+                        Título importado
                       </p>
-                      <p className="text-sm text-ink mt-0.5 truncate">{extracted.title}</p>
+                      <p className="text-sm text-ink mt-0.5 leading-snug">
+                        {extracted.title}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Name + Description in 2-col on desktop */}
-            <div className="grid sm:grid-cols-2 gap-6">
-              <FormField label="Nombre del regalo" required counter={{ value: name.length, max: NAME_MAX }}>
-                <input
-                  ref={nameRef}
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
-                  placeholder="Ej: Olla arrocera"
-                  className="mella-input"
-                />
-              </FormField>
-
-              <FormField
-                label="Tienda (opcional)"
-                hint="Link al producto en la tienda."
-              >
-                <input
-                  type="url"
-                  value={storeUrl}
-                  onChange={(e) => setStoreUrl(e.target.value)}
-                  placeholder="https://amazon.com/..."
-                  className="mella-input"
-                />
-              </FormField>
-            </div>
-
-            {/* Precio removed — feature retired */}
-
-
+            {/* Name — the primary field */}
             <FormField
-              label="Descripción (opcional)"
+              label="Nombre del regalo"
+              required
+              counter={{ value: name.length, max: NAME_MAX }}
+            >
+              <input
+                ref={nameRef}
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
+                placeholder="Ej: Olla arrocera"
+                className="mella-input text-base"
+              />
+            </FormField>
+
+            {/* Store URL */}
+            <FormField
+              label="Link de la tienda"
+              hint="Para que el invitado pueda ver el producto original."
+            >
+              <input
+                type="url"
+                value={storeUrl}
+                onChange={(e) => setStoreUrl(e.target.value)}
+                placeholder="https://amazon.com/…"
+                className="mella-input"
+              />
+            </FormField>
+
+            {/* Description */}
+            <FormField
+              label="Descripción"
               hint="Una línea ayuda al invitado a entender para qué es el regalo."
               counter={{ value: description.length, max: DESC_MAX }}
             >
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value.slice(0, DESC_MAX))}
+                onChange={(e) =>
+                  setDescription(e.target.value.slice(0, DESC_MAX))
+                }
                 rows={3}
                 placeholder="Algo que ayude al invitado a elegir."
                 className="mella-input resize-none"
               />
             </FormField>
 
-            {/* Visibility toggle */}
-            <div className="flex items-start gap-3 p-4 rounded-2xl bg-ivory-100/40 border border-ink/10">
+            {/* Visibility toggle — full-width, prominent */}
+            <div
+              onClick={() => setActive((v) => !v)}
+              className={[
+                'flex items-center gap-3 sm:gap-4 p-4 sm:p-5 rounded-2xl border transition-colors cursor-pointer select-none',
+                active
+                  ? 'bg-terracotta/8 border-terracotta/30'
+                  : 'bg-ink/5 border-ink/15',
+              ].join(' ')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                  e.preventDefault();
+                  setActive((v) => !v);
+                }
+              }}
+            >
+              {/* Switch — 48×28, tap target ≥44 via container */}
               <button
                 type="button"
                 role="switch"
                 aria-checked={active}
-                onClick={() => setActive((v) => !v)}
-                // Visible pill is small (h-4 w-7) but the button is 44px tall via
-                // padding so tap targets stay accessible.
+                aria-label="Cambiar visibilidad"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActive((v) => !v);
+                }}
                 className={[
-                  'cursor-pointer shrink-0 self-center relative inline-flex h-[28px] w-[44px] items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40',
-                  active ? 'bg-terracotta' : 'bg-ink/20',
+                  'cursor-pointer shrink-0 relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40',
+                  active ? 'bg-terracotta' : 'bg-ink/25',
                 ].join(' ')}
               >
                 <span
                   className={[
-                    'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform',
-                    active ? 'translate-x-[20px]' : 'translate-x-[2px]',
+                    'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform',
+                    active ? 'translate-x-6' : 'translate-x-1',
                   ].join(' ')}
                 />
               </button>
-              <div className="flex-1">
-                <p className="font-medium text-ink">Visible para los invitados</p>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  Si lo apagas, el regalo queda oculto en la lista pública pero no se elimina.
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-ink">
+                  {active ? 'Visible para los invitados' : 'Oculto para los invitados'}
+                </p>
+                <p className="text-xs text-ink-muted mt-0.5 leading-snug">
+                  {active
+                    ? 'Aparece en la lista pública de regalos.'
+                    : 'No se muestra a los invitados, pero no se elimina.'}
                 </p>
               </div>
-              <span
-                className={[
-                  'shrink-0 text-xs font-medium px-2.5 py-1 rounded-full',
-                  active ? 'bg-terracotta/10 text-terracotta-dark' : 'bg-ink/10 text-ink-muted',
-                ].join(' ')}
-              >
-                {active ? 'Visible' : 'Oculto'}
-              </span>
             </div>
 
             {error && (
-              <p className="text-sm text-terracotta-dark bg-terracotta/10 border border-terracotta/20 rounded-xl px-4 py-3" role="alert">
-                {error}
-              </p>
+              <div className="flex items-start gap-2 text-sm text-terracotta-dark bg-terracotta/10 border border-terracotta/20 rounded-xl px-4 py-3">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  aria-hidden
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8 L12 13 M12 16 L12 17" />
+                </svg>
+                <span role="alert">{error}</span>
+              </div>
             )}
           </div>
 
           {/* ─── Footer ─── */}
-          <footer className="px-4 sm:px-8 py-4 border-t border-ink/10 bg-ivory-50/95 backdrop-blur shrink-0 flex items-center justify-between gap-3 flex-wrap modal-mobile-bottom">
-            <p className="text-xs text-ink-muted hidden sm:flex items-center gap-2">
-              <kbd className="font-mono text-[0.65rem] px-1.5 py-0.5 bg-white border border-ink/15 rounded">Esc</kbd>
-              cerrar
-              <span className="mx-1">·</span>
-              <kbd className="font-mono text-[0.65rem] px-1.5 py-0.5 bg-white border border-ink/15 rounded">⌘↵</kbd>
-              guardar
-            </p>
-            <div className="flex items-center gap-2 ml-auto">
+          <footer className="px-4 sm:px-7 py-3 sm:py-4 border-t border-ink/10 bg-ivory-50/95 backdrop-blur shrink-0 modal-mobile-bottom">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="cursor-pointer px-5 py-2.5 rounded-full border border-ink/15 text-ink hover:bg-ivory-100 transition-colors disabled:opacity-50"
+                className="cursor-pointer flex-1 sm:flex-initial px-5 h-11 rounded-full border border-ink/15 text-ink hover:bg-ivory-100 transition-colors disabled:opacity-50 text-sm font-medium"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving || !name.trim()}
-                className="cursor-pointer inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors disabled:opacity-50"
+                className="cursor-pointer flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 h-11 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors disabled:opacity-50 text-sm"
               >
                 {saving && <SpinnerIcon className="w-4 h-4 animate-spin" />}
-                {saving ? 'Guardando…' : mode === 'add' ? 'Crear regalo' : 'Guardar cambios'}
+                {saving
+                  ? 'Guardando…'
+                  : mode === 'add'
+                  ? 'Crear regalo'
+                  : 'Guardar cambios'}
               </button>
             </div>
           </footer>
         </form>
 
-        {/* Full-form overlay loader — covers everything during save so it's
-            obvious the action is in flight and to prevent double-submits. */}
+        {/* Saving overlay — covers everything during save so the user sees
+            feedback and can't double-submit. */}
         <AnimatePresence>
           {saving && (
             <motion.div
@@ -484,46 +526,32 @@ export default function GiftFormModal({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-0 z-10 bg-ivory-50/90 backdrop-blur-md flex flex-col items-center justify-center gap-5"
+              className="absolute inset-0 z-10 bg-ivory-50/90 backdrop-blur-md flex flex-col items-center justify-center gap-5 rounded-t-3xl sm:rounded-3xl"
               role="status"
               aria-live="polite"
             >
-              {/* Editorial spinner: rotating terracotta arc with breathing gold halo */}
-              <div className="relative">
-                <motion.div
-                  className="absolute inset-0 rounded-full bg-gold/20 blur-xl"
-                  animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                />
-                <div className="relative w-16 h-16">
-                  {/* Track */}
-                  <div className="absolute inset-0 rounded-full border-2 border-ink/10" />
-                  {/* Rotating arc */}
-                  <svg viewBox="0 0 64 64" className="absolute inset-0 animate-spin" style={{ animationDuration: '1.2s' }}>
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r="28"
-                      fill="none"
-                      stroke="rgb(184, 92, 56)"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeDasharray="60 116"
-                    />
-                  </svg>
-                  {/* Center brand mark */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="display-italic text-2xl text-terracotta">m</span>
-                  </div>
-                </div>
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-2 border-ink/10" />
+                <svg
+                  viewBox="0 0 64 64"
+                  className="absolute inset-0 animate-spin"
+                  style={{ animationDuration: '1.2s' }}
+                >
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="28"
+                    fill="none"
+                    stroke="rgb(184, 92, 56)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray="60 116"
+                  />
+                </svg>
               </div>
-
-              <div className="text-center space-y-1.5">
-                <p className="font-display text-2xl text-ink">
+              <div className="text-center space-y-1">
+                <p className="font-display text-xl text-ink">
                   {mode === 'add' ? 'Creando regalo…' : 'Guardando cambios…'}
-                </p>
-                <p className="text-xs text-ink-muted tracking-wider uppercase">
-                  No cierres esta ventana
                 </p>
               </div>
             </motion.div>
@@ -537,6 +565,14 @@ export default function GiftFormModal({
 // -----------------------------------------------------------------------------
 // Form field with counter, hint, error
 // -----------------------------------------------------------------------------
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="block text-sm text-ink-soft mb-1.5 font-medium">
+      {children}
+    </span>
+  );
+}
 
 function FormField({
   label,
@@ -556,19 +592,17 @@ function FormField({
   return (
     <label className="block">
       <div className="flex items-baseline justify-between gap-2 mb-1.5">
-        <span className="text-sm text-ink-soft">
+        <span className="text-sm text-ink-soft font-medium">
           {label}
-          {required ? (
-            <span className="text-terracotta-dark ml-0.5">*</span>
-          ) : (
-            <span className="text-ink-muted/70 ml-1.5 text-xs">opcional</span>
-          )}
+          {required && <span className="text-terracotta-dark ml-0.5">*</span>}
         </span>
         {counter && (
           <span
             className={[
               'text-[0.65rem] tabular-nums',
-              counter.value > counter.max * 0.9 ? 'text-terracotta-dark' : 'text-ink-muted',
+              counter.value > counter.max * 0.9
+                ? 'text-terracotta-dark'
+                : 'text-ink-muted',
             ].join(' ')}
           >
             {counter.value}/{counter.max}
@@ -580,7 +614,9 @@ function FormField({
         <p className="text-xs text-ink-muted mt-1.5">{hint}</p>
       )}
       {error && (
-        <p className="text-xs text-terracotta-dark mt-1.5" role="alert">{error}</p>
+        <p className="text-xs text-terracotta-dark mt-1.5" role="alert">
+          {error}
+        </p>
       )}
     </label>
   );
@@ -594,31 +630,85 @@ const iconBase = 'w-4 h-4';
 
 function CloseIcon({ className = iconBase }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      className={className}
+      aria-hidden
+    >
       <path d="M6 6 L18 18 M18 6 L6 18" />
     </svg>
   );
 }
+
 function SparkleIcon({ className = iconBase }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
       <path d="M12 3 L13.5 9 L19.5 10.5 L13.5 12 L12 18 L10.5 12 L4.5 10.5 L10.5 9 Z" />
       <path d="M18 16 L18.6 18 L20.6 18.6 L18.6 19.2 L18 21 L17.4 19.2 L15.4 18.6 L17.4 18 Z" />
     </svg>
   );
 }
+
 function SpinnerIcon({ className = iconBase }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      className={className}
+      aria-hidden
+    >
       <path d="M12 3 A9 9 0 0 1 21 12" />
     </svg>
   );
 }
+
 function UploadCloudIcon({ className = iconBase }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
       <path d="M7 16 a4 4 0 0 1 0 -8 a5 5 0 0 1 9.6 -1.5 A4.5 4.5 0 0 1 18.5 16" />
       <path d="M12 12 L12 21 M8 16 L12 12 L16 16" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = iconBase }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M5 12 L10 17 L19 7" />
     </svg>
   );
 }
