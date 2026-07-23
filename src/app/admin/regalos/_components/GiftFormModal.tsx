@@ -88,46 +88,10 @@ export default function GiftFormModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // iOS keyboard handling — when the on-screen keyboard opens, the visual
-  // viewport shrinks but the layout viewport (and our modal's `92vh`) does
-  // not, so the modal gets pushed off-screen. We listen to visualViewport
-  // and clamp the modal's max-height to the visible area. We also scroll
-  // the focused field into view with a small top margin so the user can
-  // see what they're typing.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const onResize = () => {
-      // If visualViewport.height is significantly less than window.innerHeight,
-      // the keyboard is open (or the URL bar collapsed). Cap the modal height.
-      const keyboardOpen = window.innerHeight - vv.height > 100;
-      document.documentElement.style.setProperty(
-        '--modal-max-h',
-        keyboardOpen ? `${vv.height - 20}px` : '92vh',
-      );
-    };
-
-    vv.addEventListener('resize', onResize);
-    vv.addEventListener('scroll', onResize);
-    onResize();
-
-    return () => {
-      vv.removeEventListener('resize', onResize);
-      vv.removeEventListener('scroll', onResize);
-      document.documentElement.style.removeProperty('--modal-max-h');
-    };
-  }, []);
-
-  // Scroll the focused field into view when the keyboard appears, so the
-  // user can see what they're typing instead of having the input hidden
-  // behind the keyboard.
-  // NOTE: We intentionally do NOT auto-scroll focused inputs into view.
-  // iOS already handles scroll-into-view natively when the keyboard opens,
-  // and our custom scrollIntoView was the one pushing the modal off-screen.
-  // We rely on the visualViewport listener above to clamp the modal's height
-  // to the visible area instead, so the modal stays put and the user just
-  // sees the keyboard pop up below it.
+  // No visualViewport listener and no custom scrollIntoView — we follow the
+  // same pattern as CreateInvitationForm: let iOS handle keyboard scrolling
+  // natively. The modal keeps normal padding, has overflow-y-auto on the
+  // body, and iOS scrolls the focused field into view automatically.
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,8 +215,8 @@ export default function GiftFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-ink/50"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/50"
+      style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -264,20 +228,20 @@ export default function GiftFormModal({
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift flex flex-col max-h-[var(--modal-max-h,92vh)] sm:max-h-[90vh] overflow-hidden"
+        className="w-full max-w-2xl bg-ivory-50 rounded-3xl shadow-lift flex flex-col max-h-[90vh] overflow-hidden"
       >
         <form id="gift-form" onSubmit={submit} className="flex flex-col flex-1 min-h-0">
           {/* ─── Header ─── */}
-          <header className="px-5 sm:px-8 pt-5 sm:pt-6 pb-4 border-b border-ink/10 shrink-0">
-            <div className="flex items-start justify-between gap-3 sm:gap-4">
-              <div className="min-w-0">
+          <header className="px-6 sm:px-8 pt-6 pb-4 border-b border-ink/10 shrink-0">
+            <div className="flex items-start justify-between gap-4">
+              <div>
                 <p className="eyebrow text-terracotta">
                   {mode === 'add' ? 'Nuevo' : 'Editar'} · Regalos
                 </p>
-                <h2 id="gift-form-title" className="display-xl text-2xl sm:text-4xl mt-1 leading-tight">
+                <h2 id="gift-form-title" className="display-xl text-3xl sm:text-4xl mt-1 leading-tight">
                   {mode === 'add' ? 'Cuéntanos sobre este regalo' : 'Editar regalo'}
                 </h2>
-                <p className="text-sm text-ink-muted mt-1 leading-snug">
+                <p className="text-sm text-ink-muted mt-1">
                   {mode === 'add'
                     ? 'Una imagen y un nombre son suficientes. El resto lo puedes agregar después.'
                     : 'Cambia lo que necesites y guarda.'}
@@ -287,7 +251,7 @@ export default function GiftFormModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Cerrar"
-                className="cursor-pointer shrink-0 w-11 h-11 sm:w-10 sm:h-10 -mr-2 sm:mr-0 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
+                className="cursor-pointer shrink-0 w-10 h-10 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
               >
                 <CloseIcon className="w-5 h-5" />
               </button>
@@ -295,7 +259,7 @@ export default function GiftFormModal({
           </header>
 
           {/* ─── Body ─── */}
-          <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-5 sm:py-6 space-y-6 sm:space-y-7">
+          <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-6">
             {/* Image section */}
             <section
               aria-label="Imagen del regalo"
@@ -321,12 +285,12 @@ export default function GiftFormModal({
                     className="max-w-full max-h-full object-contain"
                   />
                 ) : (
-                  <div className="text-center px-5 py-8 sm:px-6 sm:py-10">
+                  <div className="text-center px-6 py-10">
                     <UploadCloudIcon className="w-12 h-12 mx-auto text-ink-muted/50 mb-3" />
-                    <p className="font-display text-base sm:text-lg text-ink-soft leading-snug">
+                    <p className="font-display text-lg text-ink-soft">
                       {dragOver ? 'Suelta la imagen aquí' : 'Arrastra una imagen o pégala con ⌘V'}
                     </p>
-                    <p className="text-xs text-ink-muted mt-1.5">o usá una URL abajo</p>
+                    <p className="text-xs text-ink-muted mt-1">o usa una URL abajo</p>
                   </div>
                 )}
               </div>
@@ -489,7 +453,7 @@ export default function GiftFormModal({
           </div>
 
           {/* ─── Footer ─── */}
-          <footer className="px-4 sm:px-8 py-4 border-t border-ink/10 bg-ivory-50/95 backdrop-blur shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 flex-wrap modal-mobile-bottom">
+          <footer className="px-4 sm:px-8 py-4 border-t border-ink/10 bg-ivory-50/95 backdrop-blur shrink-0 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs text-ink-muted hidden sm:flex items-center gap-2">
               <kbd className="font-mono text-[0.65rem] px-1.5 py-0.5 bg-white border border-ink/15 rounded">Esc</kbd>
               cerrar
@@ -497,12 +461,12 @@ export default function GiftFormModal({
               <kbd className="font-mono text-[0.65rem] px-1.5 py-0.5 bg-white border border-ink/15 rounded">⌘↵</kbd>
               guardar
             </p>
-            <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
+            <div className="flex items-center gap-2 ml-auto">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="cursor-pointer flex-1 sm:flex-initial px-5 py-2.5 rounded-full border border-ink/15 text-ink hover:bg-ivory-100 transition-colors disabled:opacity-50"
+                className="cursor-pointer px-5 py-2.5 rounded-full border border-ink/15 text-ink hover:bg-ivory-100 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -510,7 +474,7 @@ export default function GiftFormModal({
                 type="submit"
                 disabled={saving || !name.trim()}
                 className={[
-                  'cursor-pointer inline-flex items-center justify-center gap-2 flex-1 sm:flex-initial px-6 py-2.5 rounded-full font-medium transition-colors disabled:cursor-not-allowed',
+                  'cursor-pointer inline-flex items-center gap-2 px-6 py-2.5 rounded-full font-medium transition-colors',
                   saving
                     ? 'bg-terracotta-dark text-white'
                     : 'bg-terracotta text-white hover:bg-terracotta-dark disabled:opacity-50',
@@ -532,7 +496,7 @@ export default function GiftFormModal({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-0 z-10 bg-ivory-50/90 backdrop-blur-md flex flex-col items-center justify-center gap-5 rounded-t-3xl sm:rounded-3xl"
+              className="absolute inset-0 z-10 bg-ivory-50/90 backdrop-blur-md flex flex-col items-center justify-center gap-5 rounded-3xl"
               role="status"
               aria-live="polite"
             >
