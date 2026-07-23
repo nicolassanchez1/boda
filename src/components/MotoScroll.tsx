@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   motion,
   useScroll,
@@ -21,58 +21,101 @@ export default function MotoScroll({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imagesRef = useRef<HTMLImageElement[]>([]);
+  // Sliding window of decoded frames. We never hold more than BUFFER*2 in
+  // memory at once — Safari iOS will OOM-kill the tab if we hold all 118.
+  const imagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
   const rafRef = useRef<number | null>(null);
 
   const [loadedCount, setLoadedCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(0);
 
-  // ---- 1. Preload + decode every frame so the first draw is crisp. ----
+  // Detect low-memory devices — buffer shrinks further on iPhone < 4GB RAM.
+  const isLowMem = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    // deviceMemory is in GB. Safari may report undefined → assume low-mem to
+    // be safe.
+    const dm = (navigator as { deviceMemory?: number }).deviceMemory;
+    if (typeof dm === 'number') return dm < 4;
+    // userAgent sniff for older iPhones that don't expose deviceMemory
+    return /iPhone|iPad/.test(navigator.userAgent);
+  }, []);
+
+  // Sliding window size: low-mem devices keep only ±BUFFER frames around
+  // the current one.
+  const BUFFER = isLowMem ? 6 : 12;
+
+  // ---- 1. Seed: load the first BUFFER*2 frames so the user can scroll a bit
+  //         before the loader kicks in. The rest is loaded lazily by the
+  //         scroll handler. ----
   useEffect(() => {
-    const imgs: HTMLImageElement[] = [];
+    const seed = Math.min(BUFFER * 2, totalFrames);
     let count = 0;
+    for (let i = 1; i <= seed; i++) {
+      loadFrame(i, () => {
+        count++;
+        setLoadedCount(count);
+        if (count === seed) setIsReady(true);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalFrames, framePath, BUFFER]);
 
-    const mark = () => {
-      count++;
-      setLoadedCount(count);
-      if (count === totalFrames) setIsReady(true);
+  // Lazily load frame `n` if not already in the buffer.
+  const loadFrame = (n: number, onReady?: () => void) => {
+    if (n < 1 || n > totalFrames) return;
+    if (imagesRef.current.has(n)) {
+      onReady?.();
+      return;
+    }
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = framePath(n);
+    const done = () => {
+      imagesRef.current.set(n, img);
+      onReady?.();
     };
-
-    for (let i = 0; i < totalFrames; i++) {
-      const img = new Image();
-      img.decoding = 'async';
-      img.src = framePath(i + 1);
-
-      const done = async () => {
+    if (img.complete) {
+      done();
+    } else {
+      img.onload = () => {
         try {
           // Force the bitmap into a GPU-decoded state before drawImage.
           // Cuts the visible "flash" on first scrub.
-          if ('decode' in img) await img.decode();
+          if ('decode' in img) img.decode().catch(() => {});
         } catch {
-          /* decode() can reject on bad frames; fall through to mark() */
+          /* decode() can reject on bad frames; fall through */
         }
-        mark();
+        done();
       };
-
-      if (img.complete) done();
-      else {
-        img.onload = done;
-        img.onerror = () => {
-          // eslint-disable-next-line no-console
-          console.error(`[MotoScroll] failed: ${img.src}`);
-          mark();
-        };
-      }
-
-      imgs.push(img);
+      img.onerror = () => {
+        // Don't throw — a single missing frame shouldn't crash the page.
+        // Draw loop will see the gap and skip it.
+        // eslint-disable-next-line no-console
+        console.warn(`[MotoScroll] failed: ${img.src}`);
+        done();
+      };
     }
+  };
 
-    imagesRef.current = imgs;
-  }, [totalFrames, framePath]);
+  // Drop frames outside ±BUFFER around n. Releasing the Image src hints
+  // the browser to release the decoded bitmap so GC can reclaim.
+  const evictFar = (n: number) => {
+    const min = Math.max(1, n - BUFFER);
+    const max = Math.min(totalFrames, n + BUFFER);
+    for (const key of Array.from(imagesRef.current.keys())) {
+      if (key < min || key > max) {
+        const img = imagesRef.current.get(key);
+        if (img) img.src = '';
+        imagesRef.current.delete(key);
+      }
+    }
+  };
 
   // ---- 2. Canvas sizing + high-quality draw helper ----
-  const drawRef = useRef<(idx: number) => void>(() => {});
+  const drawRef = useRef<(idx: number, img?: HTMLImageElement) => void>(
+    () => {},
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,8 +139,7 @@ export default function MotoScroll({
       ctx.imageSmoothingQuality = 'high';
     };
 
-    const draw = (idx: number) => {
-      const img = imagesRef.current[idx];
+    const draw = (idx: number, img?: HTMLImageElement) => {
       const rect = canvas.getBoundingClientRect();
       const cw = rect.width;
       const ch = rect.height;
@@ -106,17 +148,25 @@ export default function MotoScroll({
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, cw, ch);
 
-      if (!img || !img.naturalWidth) return;
+      // Look up the image in the sliding window if not passed in.
+      const frame = img ?? imagesRef.current.get(idx + 1);
+      if (!frame || !frame.naturalWidth) return;
 
       // object-contain, preserve aspect, center.
-      const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
-      const dw = img.naturalWidth * scale;
-      const dh = img.naturalHeight * scale;
+      const scale = Math.min(cw / frame.naturalWidth, ch / frame.naturalHeight);
+      const dw = frame.naturalWidth * scale;
+      const dh = frame.naturalHeight * scale;
       const dx = (cw - dw) / 2;
       const dy = (ch - dh) / 2;
 
       // Round positions to whole pixels in CSS space to avoid sub-pixel blur.
-      ctx.drawImage(img, Math.round(dx), Math.round(dy), Math.round(dw), Math.round(dh));
+      ctx.drawImage(
+        frame,
+        Math.round(dx),
+        Math.round(dy),
+        Math.round(dw),
+        Math.round(dh),
+      );
     };
 
     resize();
@@ -141,11 +191,19 @@ export default function MotoScroll({
     const idx = Math.max(0, Math.min(totalFrames - 1, Math.round(latest)));
     setCurrentFrame(idx);
 
+    // Pre-fetch the surrounding window, evict the far ones. This keeps the
+    // buffer small even though the user can scroll the entire 500vh range.
+    for (let off = -BUFFER; off <= BUFFER; off++) {
+      loadFrame(idx + 1 + off);
+    }
+    evictFar(idx + 1);
+
     // Coalesce multiple motion-value updates into one paint.
     if (rafRef.current != null) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
-      drawRef.current(idx);
+      const img = imagesRef.current.get(idx + 1);
+      drawRef.current(idx, img);
     });
   });
 

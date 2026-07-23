@@ -35,12 +35,6 @@ export default function LoginPage({
             <em className="display-italic text-terracotta-dark">administración</em>
           </h1>
 
-          {/* Subhead */}
-          <p className="text-center text-ink-muted mt-6 mb-10 animate-fade-up [animation-delay:240ms]">
-            Ingresa con la contraseña
-            <br className="hidden sm:block" /> que te compartimos por mensaje.
-          </p>
-
           {/* Form */}
           <div className="animate-fade-up [animation-delay:320ms]">
             <DiamondRule className="mb-8 text-gold" />
