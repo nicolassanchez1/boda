@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Prisma } from '@prisma/client';
 import { confirmRsvp, releaseGift, reserveGift } from '@/actions/guest';
+import GuestCinematic from '@/components/guest/GuestCinematic';
 
 type AttendeeData = {
   id: string;
@@ -83,19 +84,34 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
 
   return (
     <main className="min-h-screen">
-      <Hero
+      {/* Cinematic intro — 500vh of scroll-scrubbed frames + text overlays.
+          Anchored id="rsvp-section" so the CTA can scroll the user into the form. */}
+      <GuestCinematic
         guestName={invitation.guestName}
         cupos={invitation.cupos}
         weddingInfo={weddingInfo}
+        rsvpAnchorId="rsvp-section"
       />
 
-      <ProgressDots
-        current={stepToProgress(step)}
-        total={3}
-        labels={['Asistencia', 'Comida', 'Regalo']}
-      />
+      <section
+        id="rsvp-section"
+        className="px-5 sm:px-6 pt-12 sm:pt-20 pb-16 sm:pb-24 max-w-2xl mx-auto"
+      >
+        {/* Brief connector so the transition from cinematic to form feels
+            intentional rather than abrupt. */}
+        <div className="text-center mb-8">
+          <p className="eyebrow text-terracotta">Tu invitación</p>
+          <p className="display-italic text-2xl text-ink mt-1">
+            Hola, {invitation.guestName.split(',')[0]}
+          </p>
+        </div>
 
-      <section className="px-5 sm:px-6 pb-24 max-w-2xl mx-auto">
+        <ProgressDots
+          current={stepToProgress(step)}
+          total={3}
+          labels={['Asistencia', 'Comida', 'Regalo']}
+        />
+
         <AnimatePresence mode="wait">
           {step === 'welcome' && (
             <motion.div key="welcome" {...fade}>
@@ -115,7 +131,7 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
                       attendees: [],
                     });
                     if (!result.ok) {
-                      setError(result.error);
+                      setError(rsvpMessageFor(result.code));
                       return;
                     }
                     setStep('declined');
@@ -150,7 +166,6 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
                 onBack={() => setStep('welcome')}
                 onError={setError}
                 pending={pending}
-                setPending={setPending}
               />
             </motion.div>
           )}
@@ -180,40 +195,6 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
 // -----------------------------------------------------------------------------
 // Hero
 // -----------------------------------------------------------------------------
-
-function Hero({
-  guestName,
-  cupos,
-  weddingInfo,
-}: {
-  guestName: string;
-  cupos: number;
-  weddingInfo: { date: string; time: string; venue: string };
-}) {
-  return (
-    <section className="px-5 sm:px-6 pt-12 sm:pt-16 pb-8 max-w-2xl mx-auto text-center">
-      <p className="eyebrow text-terracotta mb-4">Nuestra boda</p>
-      <h1 className="display-xl text-4xl sm:text-6xl mb-4 leading-[0.95]">
-        {greetingFor(guestName)}
-      </h1>
-      {weddingInfo.date && (
-        <p className="text-ink-soft text-base sm:text-lg leading-relaxed">
-          Nos encantaría que nos acompañes
-          {weddingInfo.time ? ` a las ${weddingInfo.time}` : ''}
-          {weddingInfo.venue ? ` en ${weddingInfo.venue}` : ''}.
-        </p>
-      )}
-      <p className="mt-4 text-sm text-ink-muted">
-        {cupos === 1 ? 'Tu invitación es para 1 persona.' : `Tu invitación es para ${cupos} personas.`}
-      </p>
-    </section>
-  );
-}
-
-function greetingFor(guestName: string): string {
-  return `Hola, ${guestName}`;
-}
-
 // -----------------------------------------------------------------------------
 // Progress dots
 // -----------------------------------------------------------------------------
@@ -412,7 +393,6 @@ function FoodStep({
   onBack,
   onError,
   pending,
-  setPending,
 }: {
   invitation: InvitationData;
   menu: { mainDishes: MenuItemData[]; drinks: MenuItemData[] };
@@ -421,7 +401,6 @@ function FoodStep({
   onBack: () => void;
   onError: (msg: string) => void;
   pending: boolean;
-  setPending: (v: boolean) => void;
 }) {
   const [attending, setAttending] = useState<number>(
     Math.max(1, invitation.attendees.length || 1),
@@ -430,6 +409,7 @@ function FoodStep({
     padAttendees(invitation.attendees, attending),
   );
   const [error, setError] = useState<string | null>(null);
+  const [submitting, startTransition] = useTransition();
 
   const setCount = (n: number) => {
     const clamped = Math.max(1, Math.min(invitation.cupos, n));
@@ -457,8 +437,9 @@ function FoodStep({
         })),
       });
       if (!result.ok) {
-        setError(result.error);
-        onError(result.error);
+        const msg = rsvpMessageFor(result.code);
+        setError(msg);
+        onError(msg);
         return;
       }
       onSaved();
@@ -948,5 +929,22 @@ function messageFor(code: string): string {
       return 'No encontramos esta invitación. Recargá la página.';
     default:
       return 'No pudimos guardar. Intentá de nuevo.';
+  }
+}
+
+function rsvpMessageFor(code: string): string {
+  switch (code) {
+    case 'OVER_CAP':
+      return 'No podés confirmar más personas de las que cubre tu invitación.';
+    case 'COUNT_MISMATCH':
+      return 'El número de asistentes no coincide con los datos que llenaste.';
+    case 'INVALID':
+      return 'Revisá los datos del formulario e intentá de nuevo.';
+    case 'DEADLINE_PASSED':
+      return 'Ya pasó la fecha límite para confirmar.';
+    case 'NOT_FOUND':
+      return 'No encontramos esta invitación. Recargá la página.';
+    default:
+      return 'No pudimos guardar tu respuesta. Intentá de nuevo.';
   }
 }
