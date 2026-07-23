@@ -16,11 +16,11 @@ export default function LoginPage({
       <CornerFlourish className="absolute bottom-6 left-6 w-12 h-12 text-gold/60 -scale-y-100" />
       <CornerFlourish className="absolute bottom-6 right-6 w-12 h-12 text-gold/60 -scale-100" />
 
-      <div className="relative min-h-screen flex items-center justify-center px-6 py-16">
+      <div className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 py-12 sm:py-16">
         <div className="w-full max-w-md">
           {/* Ornament */}
           <div className="text-terracotta mb-8 animate-fade-up">
-            <LaurelOrnament className="w-48 mx-auto h-10" />
+            <LaurelOrnament className="w-40 sm:w-48 mx-auto h-10" />
           </div>
 
           {/* Wordmark */}
@@ -29,7 +29,7 @@ export default function LoginPage({
           </p>
 
           {/* Headline */}
-          <h1 className="display-xl text-5xl md:text-6xl text-center mb-2 animate-fade-up [animation-delay:160ms]">
+          <h1 className="display-xl text-4xl sm:text-6xl text-center mb-2 animate-fade-up [animation-delay:160ms]">
             Panel de
             <br />
             <em className="display-italic text-terracotta-dark">administración</em>

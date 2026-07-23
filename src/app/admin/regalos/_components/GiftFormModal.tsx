@@ -208,7 +208,8 @@ export default function GiftFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-ink/50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-ink/50"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -407,15 +408,17 @@ export default function GiftFormModal({
                 role="switch"
                 aria-checked={active}
                 onClick={() => setActive((v) => !v)}
+                // Visible pill is small (h-4 w-7) but the button is 44px tall via
+                // padding so tap targets stay accessible.
                 className={[
-                  'cursor-pointer shrink-0 mt-0.5 relative inline-flex h-6 w-11 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40',
+                  'cursor-pointer shrink-0 self-center relative inline-flex h-[28px] w-[44px] items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40',
                   active ? 'bg-terracotta' : 'bg-ink/20',
                 ].join(' ')}
               >
                 <span
                   className={[
-                    'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform mt-0.5',
-                    active ? 'translate-x-5' : 'translate-x-0.5',
+                    'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform',
+                    active ? 'translate-x-[20px]' : 'translate-x-[2px]',
                   ].join(' ')}
                 />
               </button>
@@ -443,7 +446,7 @@ export default function GiftFormModal({
           </div>
 
           {/* ─── Footer ─── */}
-          <footer className="px-6 sm:px-8 py-4 border-t border-ink/10 bg-ivory-50/95 backdrop-blur shrink-0 flex items-center justify-between gap-3 flex-wrap">
+          <footer className="px-4 sm:px-8 py-4 border-t border-ink/10 bg-ivory-50/95 backdrop-blur shrink-0 flex items-center justify-between gap-3 flex-wrap modal-mobile-bottom">
             <p className="text-xs text-ink-muted hidden sm:flex items-center gap-2">
               <kbd className="font-mono text-[0.65rem] px-1.5 py-0.5 bg-white border border-ink/15 rounded">Esc</kbd>
               cerrar

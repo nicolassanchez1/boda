@@ -156,3 +156,56 @@ html {
     transform-origin: left;
   }
 }
+
+/* -----------------------------------------------------------------------------
+ * Mobile-first utilities — for iOS notch / Android gesture bar / etc.
+ * Only apply where the viewport-fit=cover viewport is honored (most modern
+ * browsers). Fall back gracefully on older browsers (env() returns 0).
+ * -------------------------------------------------------------------------- */
+
+/* Padding helpers — apply to the bottom of fixed/sticky elements. */
+.pt-safe   { padding-top:    env(safe-area-inset-top); }
+.pb-safe   { padding-bottom: env(safe-area-inset-bottom); }
+.pl-safe   { padding-left:   env(safe-area-inset-left); }
+.pr-safe   { padding-right:  env(safe-area-inset-right); }
+.px-safe   { padding-left:   env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+.py-safe   { padding-top:    env(safe-area-inset-top);  padding-bottom: env(safe-area-inset-bottom); }
+
+/* Margin helpers — useful for sticky-bottom bars / floating buttons. */
+.mb-safe   { margin-bottom: env(safe-area-inset-bottom); }
+.mt-safe   { margin-top:    env(safe-area-inset-top); }
+
+/* Stop iOS from bouncing the page on overscroll (where supported). */
+html {
+  overscroll-behavior-y: none;
+}
+
+/* Disable tap highlight on iOS — we use focus rings for accessibility. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Better sticky header behavior on mobile: respect safe area at top. */
+.sticky-safe-top {
+  position: sticky;
+  top: 0;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Bottom-sheet friendly padding for full-screen modals on mobile. */
+@media (max-width: 639px) {
+  .modal-mobile-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Prevent iOS Safari from auto-zooming when tapping a select. */
+select {
+  font-size: 16px;
+}
+
+/* Smooth touch scrolling for carousels and lists. */
+.scroll-smooth-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}

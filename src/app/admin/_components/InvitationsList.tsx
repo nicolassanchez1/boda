@@ -668,6 +668,8 @@ function Checkbox({
   onChange: () => void;
   ariaLabel: string;
 }) {
+  // Visible square is 16px. The button is 28×28 (tap target ≥ 44px area via
+  // visual padding from neighbours). Keeps the row feeling light.
   return (
     <button
       type="button"
@@ -678,16 +680,24 @@ function Checkbox({
         e.stopPropagation();
         onChange();
       }}
-      className="cursor-pointer w-5 h-5 rounded border-2 transition-colors flex items-center justify-center focus-visible:ring-2 focus-visible:ring-terracotta/40"
+      className="cursor-pointer w-7 h-7 rounded-md flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 transition-colors"
       style={{
-        borderColor: checked || indeterminate ? 'rgb(184 92 56)' : 'rgb(122 111 100 / 0.4)',
-        backgroundColor: checked ? 'rgb(184 92 56)' : 'transparent',
+        color: checked || indeterminate ? 'rgb(184 92 56)' : 'rgb(122 111 100 / 0.4)',
       }}
     >
-      {checked && <CheckIcon className="w-3 h-3 text-white" />}
-      {indeterminate && (
-        <span className="block w-2.5 h-0.5 bg-terracotta rounded-full" />
-      )}
+      <span
+        className={[
+          'block w-4 h-4 rounded border-[1.5px] transition-colors flex items-center justify-center',
+          checked || indeterminate
+            ? 'bg-terracotta border-terracotta'
+            : 'bg-transparent border-ink/30 group-hover:border-ink/50',
+        ].join(' ')}
+      >
+        {checked && <CheckIcon className="w-2.5 h-2.5 text-white" />}
+        {indeterminate && (
+          <span className="block w-2 h-[1.5px] bg-white rounded-full" />
+        )}
+      </span>
     </button>
   );
 }

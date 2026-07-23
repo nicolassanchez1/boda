@@ -14,8 +14,8 @@ type Props = {
 };
 
 export default function MotoScroll({
-  totalFrames = 117,
-  framePath = (i) => `/frames/ezgif-frame-${String(i).padStart(3, '0')}.png`,
+  totalFrames = 118,
+  framePath = (i) => `/frames/frame_${String(i).padStart(4, '0')}.png`,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

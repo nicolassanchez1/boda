@@ -26,8 +26,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // Don't cap maximumScale — blocking zoom is an accessibility failure.
   themeColor: '#fdfbf7',
+  viewportFit: 'cover', // safe-area insets for notched phones
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
