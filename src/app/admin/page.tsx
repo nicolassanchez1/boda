@@ -1,33 +1,18 @@
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { DiamondRule } from '@/components/ui/Ornament';
-import FilterBar from './_components/FilterBar';
 import InvitationsList from './_components/InvitationsList';
 import CreateInvitationForm from './_components/CreateInvitationForm';
 import BulkCreateForm from './_components/BulkCreateForm';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_STATUSES = new Set(['PENDING', 'CONFIRMED', 'DECLINED']);
-
-type Search = { status?: string; opened?: string };
-
-export default async function InvitadosPage({ searchParams }: { searchParams: Search }) {
-  const where: Prisma.InvitationWhereInput = {};
-
-  if (searchParams.status && searchParams.status !== 'all' && VALID_STATUSES.has(searchParams.status)) {
-    where.status = searchParams.status as 'PENDING' | 'CONFIRMED' | 'DECLINED';
-  }
-  if (searchParams.opened === 'never') {
-    where.firstOpenedAt = null;
-  } else if (searchParams.opened === 'opened') {
-    where.firstOpenedAt = { not: null };
-  }
-
-  // Fetch invitations + an unfiltered stats snapshot in parallel.
+export default async function InvitadosPage() {
+  // We always fetch every invitation. Filtering (status + search) happens
+  // client-side inside InvitationsList so the admin sees results instantly
+  // without a round-trip to the server. This is also what makes the sticky
+  // filters feel responsive.
   const [invitations, allInvitations] = await Promise.all([
     prisma.invitation.findMany({
-      where,
       include: {
         attendees: { include: { mainDish: true, drink: true } },
         gifts: { select: { id: true, name: true } },
@@ -40,16 +25,10 @@ export default async function InvitadosPage({ searchParams }: { searchParams: Se
   ]);
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? '';
-
-  // Compute stats from the unfiltered list.
   const stats = computeStats(allInvitations);
-  const isFiltered: boolean = Boolean(
-    (searchParams.status && searchParams.status !== 'all') ||
-      (searchParams.opened && searchParams.opened !== 'all'),
-  );
 
   return (
-    <div className="space-y-8 sm:space-y-10">
+    <div className="space-y-6 sm:space-y-10">
       {/* Hero header — sets the editorial tone for the page. */}
       <header className="relative">
         {/* Editorial gold rule with diamond ornament */}
@@ -64,51 +43,6 @@ export default async function InvitadosPage({ searchParams }: { searchParams: Se
                 {stats.total === 1 ? 'invitación' : 'invitaciones'}
               </span>
             </h1>
-            {/* Quick pulse — desktop only. On mobile the stats row below
-                carries the same info, and /admin/resumen has the full
-                breakdown, so we skip it here to reduce vertical noise. */}
-            <p className="hidden sm:block mt-3 text-sm text-ink-soft leading-relaxed">
-              {stats.confirmed > 0 && (
-                <>
-                  <strong className="text-sage-dark font-medium">
-                    {stats.confirmed} {stats.confirmed === 1 ? 'confirmada' : 'confirmadas'}
-                  </strong>
-                  {stats.confirmedPeople > 0 && (
-                    <span className="text-ink-muted">
-                      {' '}
-                      · {stats.confirmedPeople} {stats.confirmedPeople === 1 ? 'persona' : 'personas'}
-                    </span>
-                  )}
-                  {(stats.pending > 0 || stats.declined > 0) && <span className="text-ink-muted/50">  ·  </span>}
-                </>
-              )}
-              {stats.pending > 0 && (
-                <>
-                  <strong className="text-terracotta-dark font-medium">
-                    {stats.pending} {stats.pending === 1 ? 'pendiente' : 'pendientes'}
-                  </strong>
-                  {stats.neverOpened > 0 && (
-                    <span className="text-ink-muted">
-                      {' '}
-                      ({stats.neverOpened} sin abrir)
-                    </span>
-                  )}
-                  {stats.declined > 0 && <span className="text-ink-muted/50">  ·  </span>}
-                </>
-              )}
-              {stats.declined > 0 && (
-                <span className="text-ink-muted">
-                  <strong className="text-ink-soft font-medium">
-                    {stats.declined} {stats.declined === 1 ? 'declinó' : 'declinaron'}
-                  </strong>
-                </span>
-              )}
-              {stats.total === 0 && (
-                <span className="text-ink-muted">
-                  Creá la primera invitación con el botón de la derecha.
-                </span>
-              )}
-            </p>
           </div>
 
           <div className="flex gap-2 shrink-0">
@@ -118,58 +52,15 @@ export default async function InvitadosPage({ searchParams }: { searchParams: Se
         </div>
       </header>
 
-      {/* Stats row — full-width cards on mobile, 4-up on desktop. */}
-      <section aria-label="Resumen de invitaciones">
+      {/* Stats row — desktop only. On mobile the same numbers live in
+          /admin/resumen, so we hide them here to avoid duplication. */}
+      <section aria-label="Resumen de invitaciones" className="hidden sm:block">
         <StatsRow stats={stats} />
       </section>
 
-      {/* Filters section — wrapped in a card so it reads as a distinct unit. */}
-      <section className="bg-white rounded-2xl shadow-soft p-5 sm:p-5">
-        <header className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-baseline gap-2">
-            <p className="smallcaps text-ink-muted">Filtrar</p>
-            {isFiltered && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-terracotta/10 text-terracotta-dark text-[0.65rem] font-semibold tracking-wider uppercase">
-                Activo
-              </span>
-            )}
-          </div>
-          {isFiltered && (
-            <a
-              href="/admin"
-              className="cursor-pointer text-xs text-terracotta-dark hover:text-terracotta transition-colors inline-flex items-center gap-1.5 font-medium"
-            >
-              <span>Limpiar</span>
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                className="w-3 h-3"
-                aria-hidden
-              >
-                <path d="M4 4 L12 12 M12 4 L4 12" />
-              </svg>
-            </a>
-          )}
-        </header>
-        <FilterBar
-          current={{
-            status: searchParams.status ?? 'all',
-            opened: searchParams.opened ?? 'all',
-          }}
-        />
-      </section>
-
-      {/* Invitations list */}
+      {/* Invitations list (with sticky client-side filters) */}
       <section>
-        <InvitationsList
-          invitations={invitations}
-          baseUrl={baseUrl}
-          isFiltered={isFiltered}
-          totalCount={stats.total}
-        />
+        <InvitationsList invitations={invitations} baseUrl={baseUrl} totalCount={stats.total} />
       </section>
     </div>
   );
@@ -203,7 +94,6 @@ function StatsRow({
     totalCupos: number;
   };
 }) {
-  // Each item gets a colored left rail + icon for scannability on mobile.
   const items: {
     label: string;
     value: number;
@@ -267,7 +157,6 @@ function StatsRow({
           key={it.label}
           className="group relative bg-white rounded-2xl shadow-soft hover:shadow-lift transition-shadow overflow-hidden min-w-0"
         >
-          {/* Color rail — left vertical accent for scannability. */}
           <div
             className={[
               'absolute left-0 top-0 bottom-0 w-1',
@@ -281,7 +170,6 @@ function StatsRow({
           />
 
           <div className="p-5 sm:p-5 pl-5 sm:pl-6 flex items-start gap-3">
-            {/* Icon chip */}
             <div
               className={[
                 'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center',
