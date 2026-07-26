@@ -9,6 +9,7 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { ADMIN_COOKIE_NAME, isAdminAuthed } from '@/lib/auth';
 import { generateUniqueToken } from '@/lib/tokens';
@@ -28,15 +29,15 @@ import {
 
 export type AdminActionResult<T = unknown> =
   | { ok: true; data?: T }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: string };
 
 function ensureAdmin(): boolean {
   const c = cookies().get(ADMIN_COOKIE_NAME)?.value;
   return isAdminAuthed(c);
 }
 
-function fail<T = unknown>(error: string): AdminActionResult<T> {
-  return { ok: false, error };
+function fail<T = unknown>(error: string, code?: string): AdminActionResult<T> {
+  return { ok: false, error, code };
 }
 
 // --- Invitations --------------------------------------------------------------
@@ -161,8 +162,25 @@ export async function upsertGift(rawInput: unknown): Promise<AdminActionResult> 
   let parsed;
   try {
     parsed = upsertGiftSchema.parse(rawInput);
-  } catch {
-    return fail('Datos inválidos.');
+  } catch (err) {
+    // Build a human-readable message from the Zod issues so the admin
+    // sees the EXACT field that failed in the modal, not a generic
+    // "Datos inválidos". Example:
+    //   "imageUrl: URL inválida (debe empezar con http:// o https://)"
+    if (err instanceof z.ZodError) {
+      const first = err.issues[0];
+      const path = first.path.length > 0 ? first.path.join('.') : 'campo';
+      const detail = `${path}: ${first.message}`;
+      // eslint-disable-next-line no-console
+      console.error('[upsertGift] validation failed:', {
+        issues: err.issues,
+        firstDetail: detail,
+      });
+      return fail(`Datos inválidos — ${detail}`, 'VALIDATION');
+    }
+    // eslint-disable-next-line no-console
+    console.error('[upsertGift] unexpected error:', err);
+    return fail('Error inesperado. Revisa la consola del server.', 'UNEXPECTED');
   }
   const { id, ...data } = parsed;
   const gift = id

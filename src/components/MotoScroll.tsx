@@ -12,12 +12,19 @@ type Props = {
   totalFrames?: number;
   framePath?: (i: number) => string;
   showFrameCounter?: boolean;
+  // 'cover' fills the stage (crops the overflow) — right for footage whose
+  // aspect ratio matches the viewport. 'contain' letterboxes the whole frame.
+  fit?: 'cover' | 'contain';
+  // Optional eyebrow shown in the loader. Omit for none.
+  loaderLabel?: string;
 };
 
 export default function MotoScroll({
-  totalFrames = 118,
-  framePath = (i) => `/frames/frame_${String(i).padStart(4, '0')}.png`,
+  totalFrames = 96,
+  framePath = (i) => `/frames/desktop/frame_${String(i).padStart(4, '0')}.jpg`,
   showFrameCounter = true,
+  fit = 'cover',
+  loaderLabel,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -152,8 +159,12 @@ export default function MotoScroll({
       const frame = img ?? imagesRef.current.get(idx + 1);
       if (!frame || !frame.naturalWidth) return;
 
-      // object-contain, preserve aspect, center.
-      const scale = Math.min(cw / frame.naturalWidth, ch / frame.naturalHeight);
+      // Preserve aspect, center. 'cover' fills the stage (crops overflow);
+      // 'contain' fits the whole frame (letterbox).
+      const scale =
+        fit === 'cover'
+          ? Math.max(cw / frame.naturalWidth, ch / frame.naturalHeight)
+          : Math.min(cw / frame.naturalWidth, ch / frame.naturalHeight);
       const dw = frame.naturalWidth * scale;
       const dh = frame.naturalHeight * scale;
       const dx = (cw - dw) / 2;
@@ -176,7 +187,7 @@ export default function MotoScroll({
     if (isReady) draw(0);
 
     return () => window.removeEventListener('resize', resize);
-  }, [isReady]);
+  }, [isReady, fit]);
 
   // ---- 3. Scroll → frame index, throttled to one paint per animation frame ----
   const { scrollYProgress } = useScroll({
@@ -208,9 +219,9 @@ export default function MotoScroll({
   });
 
   return (
-    <div ref={containerRef} className="relative h-[500vh] bg-black">
+    <div ref={containerRef} className="relative h-[500svh] bg-black">
       {/* Sticky stage */}
-      <div className="sticky top-0 h-screen w-full overflow-hidden">
+      <div className="sticky top-0 h-[100svh] w-full overflow-hidden">
         <canvas
           ref={canvasRef}
           className={`h-full w-full transition-opacity duration-700 ${
@@ -220,15 +231,17 @@ export default function MotoScroll({
         />
 
         {/* Cinematic letterbox bars — fixed-height, gold accent on the bottom one. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[8vh] bg-black" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[10vh] bg-black" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-[10vh] h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[8svh] bg-black" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[10svh] bg-black" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-[10svh] h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
 
         {/* Loader */}
         {!isReady && (
           <div className="absolute inset-0 flex items-center justify-center text-white">
             <div className="text-center max-w-xs px-6">
-              <p className="eyebrow text-terracotta mb-6">Superleggera V4</p>
+              {loaderLabel && (
+                <p className="eyebrow text-terracotta mb-6">{loaderLabel}</p>
+              )}
               <div className="w-12 h-12 mx-auto mb-6 border-2 border-white/20 border-t-terracotta rounded-full animate-spin" />
               {/* Progress bar */}
               <div className="relative h-px w-full bg-white/10 mb-3 overflow-hidden">
@@ -251,7 +264,7 @@ export default function MotoScroll({
         {/* Frame counter — bottom-left, in the letterbox. Opt-in for non-demo uses
             (e.g. guest cinematic) since "0/117 frame" is ugly in production. */}
         {isReady && showFrameCounter && (
-          <div className="pointer-events-none absolute bottom-[2vh] left-6 sm:left-10 text-white/70">
+          <div className="pointer-events-none absolute bottom-[2svh] left-6 sm:left-10 text-white/70">
             <p className="text-[0.6rem] tracking-[0.35em] uppercase">Frame</p>
             <p className="font-display text-2xl leading-none mt-1">
               <span className="text-terracotta">

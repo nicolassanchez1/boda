@@ -79,12 +79,33 @@ export const bulkCreateSchema = z.object({
   lines: z.string().trim().min(1).max(50_000),
 });
 
+// URL helper: we don't use Zod's .url() because Amazon CDN URLs contain
+// characters that fail the standard URL validator (e.g. `+`, long query
+// strings, sometimes URL-encoded fragments). We use a custom regex that
+// just checks the shape (protocol + host) and length.
+const safeUrl = z
+  .string()
+  .trim()
+  .max(2000, 'La URL es demasiado larga (máx 2000 caracteres).')
+  .refine(
+    (v) => {
+      if (!v) return true; // empty string → null below
+      try {
+        const u = new URL(v);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    },
+    { message: 'URL inválida (debe empezar con http:// o https://).' },
+  );
+
 export const upsertGiftSchema = z.object({
   id: z.string().nullable().optional(),
   name: trimmedNonEmpty,
   description: z.string().trim().max(500).nullable().optional(),
-  imageUrl: z.string().trim().url().nullable().optional().or(z.literal('').transform(() => null)),
-  storeUrl: z.string().trim().url().nullable().optional().or(z.literal('').transform(() => null)),
+  imageUrl: safeUrl.nullable().optional().or(z.literal('').transform(() => null)),
+  storeUrl: safeUrl.nullable().optional().or(z.literal('').transform(() => null)),
   order: z.coerce.number().int().min(0).max(9999).default(0),
   active: z.coerce.boolean().default(true),
 });

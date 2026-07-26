@@ -21,7 +21,7 @@ export default function AdminHeader() {
         <CornerFlourish className="absolute -top-1 -left-1 w-10 h-10 text-gold/50 hidden md:block pointer-events-none" />
         <CornerFlourish className="absolute -top-1 -right-1 w-10 h-10 text-gold/50 hidden md:block -scale-x-100 pointer-events-none" />
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 sm:pt-5 pb-2 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3 sm:pt-5 pb-2 flex items-center justify-between gap-2 sm:gap-4">
           {/* Hamburger — mobile only */}
           <button
             type="button"
@@ -65,7 +65,7 @@ export default function AdminHeader() {
         </div>
 
         {/* Tabs — desktop only. Mobile uses the drawer. */}
-        <div className="max-w-6xl mx-auto sm:px-6 -mx-4 sm:mx-0 px-4 hidden sm:block">
+        <div className="max-w-7xl mx-auto sm:px-6 -mx-4 sm:mx-0 px-4 hidden sm:block">
           <AdminTabs />
         </div>
       </header>

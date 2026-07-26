@@ -185,14 +185,40 @@ export default function InvitationsList({
             </button>
           </div>
         ) : (
-          filtered.map((inv) => (
-            <InvitationCard
-              key={inv.id}
-              invitation={inv}
-              baseUrl={baseUrl}
-              onChanged={() => router.refresh()}
-            />
-          ))
+          <motion.div
+            // Staggered cascade reveal on mount + on filter change. The AnimatePresence
+            // around the container makes cards entering/leaving animate smoothly when
+            // the admin changes the status filter or types in search.
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: {},
+              visible: {
+                transition: { staggerChildren: 0.04, delayChildren: 0.05 },
+              },
+            }}
+            className="space-y-2"
+          >
+            <AnimatePresence mode="popLayout" initial={false}>
+              {filtered.map((inv) => (
+                <motion.div
+                  key={inv.id}
+                  layout
+                  variants={{
+                    hidden: { opacity: 0, y: 12 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+                  }}
+                  exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }}
+                >
+                  <InvitationCard
+                    invitation={inv}
+                    baseUrl={baseUrl}
+                    onChanged={() => router.refresh()}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </div>
     </div>
@@ -316,27 +342,45 @@ function StickyFilters({
                 onClick={() => onStatusFilterChange(chip.key)}
                 aria-pressed={isActive}
                 className={[
-                  'cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 sm:py-2 rounded-full text-sm font-medium border shrink-0 snap-start transition-all active:scale-[0.97]',
-                  isActive
-                    ? 'bg-terracotta text-white border-terracotta shadow-soft'
-                    : 'bg-white border-ink/20 text-ink-soft hover:text-ink hover:border-ink/40 hover:bg-ivory-100',
+                  'relative cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 sm:py-2 rounded-full text-sm font-medium shrink-0 snap-start transition-colors active:scale-[0.97]',
+                  // The colored background is a separate animated layer (below)
+                  // with layoutId="status-chip-bg" so it SLIDES between chips
+                  // when the user picks a different one. Elegant, memorable.
+                  isActive ? 'text-white' : 'text-ink-soft hover:text-ink',
                 ].join(' ')}
               >
-                <span
-                  className={[
-                    'w-1.5 h-1.5 rounded-full shrink-0',
-                    isActive ? 'bg-white/80' : chip.dot,
-                  ].join(' ')}
-                  aria-hidden
-                />
-                <span>{chip.label}</span>
-                <span
-                  className={[
-                    'text-[0.65rem] font-semibold tabular-nums px-1.5 rounded-full',
-                    isActive ? 'bg-white/20 text-white' : 'bg-ivory-100 text-ink-muted',
-                  ].join(' ')}
-                >
-                  {count}
+                {/* Shared layout background — the magic that animates between chips */}
+                {isActive && (
+                  <motion.span
+                    layoutId="status-chip-bg"
+                    className="absolute inset-0 rounded-full bg-terracotta shadow-soft"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                {/* Inactive background — only rendered when not active so it
+                    doesn't sit on top of the active shared one. */}
+                {!isActive && (
+                  <span className="absolute inset-0 rounded-full bg-white border border-ink/20" />
+                )}
+
+                {/* Content sits above the bg layer */}
+                <span className="relative inline-flex items-center gap-1.5">
+                  <span
+                    className={[
+                      'w-1.5 h-1.5 rounded-full shrink-0',
+                      isActive ? 'bg-white/80' : chip.dot,
+                    ].join(' ')}
+                    aria-hidden
+                  />
+                  <span>{chip.label}</span>
+                  <span
+                    className={[
+                      'text-[0.65rem] font-semibold tabular-nums px-1.5 rounded-full',
+                      isActive ? 'bg-white/20 text-white' : 'bg-ivory-100 text-ink-muted',
+                    ].join(' ')}
+                  >
+                    {count}
+                  </span>
                 </span>
               </button>
             );
@@ -432,12 +476,16 @@ function InvitationCard({
       <motion.button
         type="button"
         layout
+        // Rich tap feedback: subtle scale + shadow lift on press. Feels like
+        // pressing a physical card. Uses spring so it bounces back naturally.
+        whileTap={{ scale: 0.985, transition: { duration: 0.08 } }}
+        whileHover={{ y: -2, transition: { duration: 0.15 } }}
         transition={{ duration: 0.2 }}
         onClick={() => setSheetOpen(true)}
         aria-label={`Acciones para ${invitation.guestName}`}
         className={[
-          'group relative w-full text-left bg-white rounded-2xl shadow-soft overflow-hidden transition-all touch-manipulation cursor-pointer',
-          'hover:shadow-lift active:scale-[0.995] focus-visible:ring-2 focus-visible:ring-terracotta/40 focus-visible:outline-none',
+          'group relative w-full text-left bg-white rounded-2xl shadow-soft overflow-hidden transition-shadow touch-manipulation cursor-pointer',
+          'hover:shadow-lift focus-visible:ring-2 focus-visible:ring-terracotta/40 focus-visible:outline-none',
           invitation.status === 'DECLINED' ? 'opacity-70' : '',
         ].join(' ')}
       >
@@ -538,10 +586,12 @@ function InvitationCard({
             aria-label={`Acciones para ${invitation.guestName}`}
           >
             <motion.div
-              initial={{ y: '100%', opacity: 0.6 }}
+              // Spring physics for a "physical sheet" feel — slight overshoot
+              // and a natural settle. Damping 32 prevents excessive bounce.
+              initial={{ y: '100%', opacity: 0.4 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              exit={{ y: '100%', opacity: 0, transition: { duration: 0.22 } }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
               onClick={(e) => e.stopPropagation()}
               className="w-full sm:max-w-md bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift overflow-hidden"
             >
@@ -919,7 +969,7 @@ function EditInvitationModal({
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="modal-mobile-bottom w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90vh] overflow-y-auto"
+        className="modal-mobile-bottom w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90dvh] overflow-y-auto"
       >
         <form onSubmit={submit} className="space-y-4">
           <header>

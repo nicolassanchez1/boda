@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Prisma } from '@prisma/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -184,7 +185,7 @@ export function List({
                 count={reserved.length}
                 accent="sage"
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                 {reserved.map((g) => (
                   <GiftCard
                     key={g.id}
@@ -212,7 +213,7 @@ export function List({
                 count={available.length}
                 accent="terracotta"
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                 {available.map((g) => (
                   <GiftCard
                     key={g.id}
@@ -315,7 +316,23 @@ function GiftCard({
   busy?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Track viewport so we render the right menu surface. We can't rely on
+  // Tailwind responsive classes for the AnimatePresence content because both
+  // branches would still mount (and both would be in the React tree) —
+  // which is what was causing the double-modal bug on mobile. We explicitly
+  // render only one of them based on the actual viewport.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 639px)');
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches);
+    handler(mql);
+    mql.addEventListener('change', handler as (e: MediaQueryListEvent) => void);
+    return () =>
+      mql.removeEventListener('change', handler as (e: MediaQueryListEvent) => void);
+  }, []);
 
   // Close menu on outside click / Escape.
   useEffect(() => {
@@ -340,15 +357,27 @@ function GiftCard({
 
   return (
     <>
-    <motion.article
+    <motion.button
+      type="button"
       layout
+      // Mobile: whole card is tappable → opens the bottom sheet. Desktop:
+      // the card itself is NOT tappable (it would conflict with the
+      // explicit Editar / Liberar / ⋯ buttons). So the onClick only runs
+      // in mobile via the `sm:hidden` button row inside.
+      onClick={() => {
+        if (typeof window !== 'undefined' && window.innerWidth < 640) {
+          setMenuOpen(true);
+        }
+      }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className={[
-        // Mobile: horizontal row (thumbnail + content + dots).
-        // Desktop (sm+): vertical card, image on top.
-        'group relative bg-white rounded-2xl shadow-soft overflow-hidden flex flex-row sm:flex-col transition-shadow hover:shadow-lift',
+        'group relative w-full text-left bg-white rounded-2xl shadow-soft overflow-hidden flex flex-row sm:flex-col transition-shadow',
+        // Tap feedback only on mobile — desktop uses the explicit buttons.
+        'sm:cursor-default cursor-pointer active:scale-[0.99] sm:active:scale-100',
+        'sm:hover:shadow-lift focus-visible:ring-2 focus-visible:ring-terracotta/40 focus-visible:outline-none',
         !gift.active ? 'opacity-60' : '',
       ].join(' ')}
+      aria-label={`Acciones para ${gift.name}`}
     >
       {/* Busy overlay — covers the card while a reorder/delete/release is
           in flight. Tells the user something is happening (the round-trip
@@ -380,8 +409,11 @@ function GiftCard({
         )}
       </AnimatePresence>
 
-      {/* Thumbnail — square on mobile (smaller), full card-width on desktop */}
-      <div className="relative w-24 h-24 sm:w-auto sm:aspect-square shrink-0 bg-ivory-100 overflow-hidden">
+      {/* Thumbnail — small on mobile, DOMINANT on desktop. min-h-[280px]
+          guarantees the image is always taller than the title + buttons
+          combined, no matter the card width. Status badge overlays it
+          so the content strip below can stay minimal. */}
+      <div className="relative w-24 h-24 sm:w-auto sm:min-h-[280px] sm:aspect-[4/5] shrink-0 bg-ivory-100 overflow-hidden">
         {gift.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -396,171 +428,107 @@ function GiftCard({
           </div>
         )}
 
-        {/* Status badges — desktop only on the image, mobile shows them in
-            the content area to keep the thumbnail clean. */}
-        <div className="absolute top-3 left-3 hidden sm:flex gap-1.5">
+        {/* Status badge — desktop overlay on the image. Mobile shows it
+            in the content area (see below). */}
+        <div className="absolute top-2.5 left-2.5 hidden sm:flex flex-col gap-1.5">
           {reserved && (
-            <span className="inline-flex items-center gap-1 bg-sage text-white text-xs font-medium px-2.5 py-1 rounded-full shadow-sm">
-              <CheckIcon className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 bg-sage text-white text-[0.65rem] font-semibold uppercase tracking-wider px-2 py-1 rounded-full shadow-sm">
+              <CheckIcon className="w-2.5 h-2.5" />
               Apartado
             </span>
           )}
           {!gift.active && (
-            <span className="bg-ink/70 text-white text-xs font-medium px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center bg-ink/80 text-white text-[0.65rem] font-semibold uppercase tracking-wider px-2 py-1 rounded-full shadow-sm">
               Oculto
             </span>
           )}
         </div>
-
-        {/* Action menu trigger — desktop only. On mobile it's placed inline in
-            the content row (see below) so it doesn't cover the photo. */}
-        <div ref={menuRef} className="hidden sm:block sm:absolute sm:top-3 sm:right-3">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label="Más acciones"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            className="cursor-pointer w-10 h-10 rounded-full bg-white/95 backdrop-blur shadow-soft flex items-center justify-center text-ink hover:bg-white transition-colors"
-          >
-            <DotsIcon className="w-4 h-4" />
-          </button>
-
-          {/* Desktop dropdown — anchored to the trigger. Hidden on mobile. */}
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                transition={{ duration: 0.15 }}
-                role="menu"
-                className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden z-10 py-1"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MenuItem icon={<EditIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
-                  Editar
-                </MenuItem>
-                <div className="h-px bg-ink/5 my-1" />
-                <MenuItem
-                  icon={<ArrowUpIcon className="w-4 h-4" />}
-                  onClick={() => { setMenuOpen(false); onMoveUp(); }}
-                  disabled={isFirst || disabled}
-                >
-                  Mover arriba
-                </MenuItem>
-                <MenuItem
-                  icon={<ArrowDownIcon className="w-4 h-4" />}
-                  onClick={() => { setMenuOpen(false); onMoveDown(); }}
-                  disabled={isLast || disabled}
-                >
-                  Mover abajo
-                </MenuItem>
-                <div className="h-px bg-ink/5 my-1" />
-                {reserved ? (
-                  <MenuItem icon={<UnreserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onRelease(); }}>
-                    Liberar reserva
-                  </MenuItem>
-                ) : (
-                  <MenuItem icon={<ReserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onReserve(); }}>
-                    Apartar a nombre de…
-                  </MenuItem>
-                )}
-                <div className="h-px bg-ink/5 my-1" />
-                <MenuItem
-                  icon={<TrashIcon className="w-4 h-4" />}
-                  onClick={() => { setMenuOpen(false); onDelete(); }}
-                  danger
-                >
-                  Eliminar
-                </MenuItem>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div>
 
-      {/* Content — flex-row on mobile (compact), flex-col on desktop. */}
-      <div className="p-3 sm:p-3.5 flex-1 flex flex-col gap-1 sm:gap-1.5 min-w-0 justify-center sm:justify-start">
-        {/* Mobile-only status row (badges that we hid from the thumbnail) */}
+      {/* Content — flex-row on mobile, ultra-compact on desktop. Every pixel
+          here is a pixel the image loses, so the content strip is
+          intentionally small. Image is the hero. */}
+      <div className="p-3 sm:px-3 sm:py-2 flex-1 flex flex-col gap-1.5 min-w-0 justify-center sm:justify-start">
+        {/* Mobile-only status row (desktop overlays it on the image). */}
         {(reserved || !gift.active) && (
-          <div className="flex sm:hidden gap-1.5 text-[0.65rem]">
+          <div className="flex sm:hidden flex-wrap gap-1.5 text-[0.65rem]">
             {reserved && (
-              <span className="inline-flex items-center gap-1 bg-sage/15 text-sage-dark font-medium px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 bg-sage/15 text-sage-dark font-semibold px-2 py-0.5 rounded-full">
                 <CheckIcon className="w-2.5 h-2.5" />
                 Apartado
               </span>
             )}
             {!gift.active && (
-              <span className="bg-ink/10 text-ink-muted font-medium px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center bg-ink/10 text-ink-muted font-semibold px-2 py-0.5 rounded-full">
                 Oculto
               </span>
             )}
           </div>
         )}
 
-        <h3 className="font-display text-base leading-tight text-ink line-clamp-2">
+        {/* Title — small on desktop, 1 line max. The image is the visual
+            hero; the title is just a label. */}
+        <h3 className="font-display text-base sm:text-sm leading-tight text-ink line-clamp-1 sm:line-clamp-2">
           {gift.name}
         </h3>
 
-        {gift.description && (
-          <p className="text-xs text-ink-muted line-clamp-2 leading-snug hidden sm:block">
-            {gift.description}
-          </p>
-        )}
-
-        {/* Bottom row — pushed to the end so all cards align on desktop.
-            On mobile the "···" button lives here, next to the store link,
-            so it doesn't overlap the gift photo. */}
-        <div className="mt-auto sm:pt-2 flex items-center justify-between gap-2 text-xs">
-          <div className="min-w-0 truncate">
-            {gift.reservedBy ? (
-              <span className="text-sage-dark">
-                <span className="text-ink-muted/70 hidden sm:inline">Por </span>
-                <strong className="font-medium">{gift.reservedBy.guestName}</strong>
-              </span>
+        {/* Desktop action row — tight, no border-top, minimal padding.
+            Editar + Liberar/Apartar visible, `···` for the rest. */}
+        <div className="hidden sm:flex items-center gap-1 mt-auto">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="cursor-pointer flex-1 inline-flex items-center justify-center gap-1 min-h-[32px] px-2 rounded-md bg-ink text-ivory-50 text-xs font-semibold hover:bg-ink-soft transition-colors"
+          >
+            <EditIcon className="w-3.5 h-3.5" />
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={reserved ? onRelease : onReserve}
+            className={[
+              'cursor-pointer inline-flex items-center justify-center gap-1 min-h-[32px] px-2 rounded-md text-xs font-semibold transition-colors',
+              reserved
+                ? 'bg-sage/15 text-sage-dark hover:bg-sage/25'
+                : 'bg-terracotta/10 text-terracotta-dark hover:bg-terracotta/15',
+            ].join(' ')}
+            aria-label={reserved ? 'Liberar reserva' : 'Apartar regalo'}
+          >
+            {reserved ? (
+              <UnreserveIcon className="w-3.5 h-3.5" />
             ) : (
-              <span className="text-ink-muted/50">Disponible</span>
+              <ReserveIcon className="w-3.5 h-3.5" />
             )}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {gift.storeUrl ? (
-              <a
-                href={gift.storeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cursor-pointer inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto text-terracotta-dark hover:text-terracotta"
-                aria-label={`Ver tienda para ${gift.name}`}
-              >
-                <ExternalIcon className="w-3.5 h-3.5" />
-              </a>
-            ) : null}
-            {/* Mobile-only action button — desktop version lives in the
-                thumbnail corner (see above). Opens the bottom sheet. */}
+          </button>
+          <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               onClick={() => setMenuOpen((o) => !o)}
               aria-label="Más acciones"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="sm:hidden cursor-pointer w-8 h-8 rounded-full text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
+              className="cursor-pointer w-8 h-8 rounded-md text-ink-muted hover:bg-ivory-100 hover:text-ink transition-colors flex items-center justify-center"
             >
               <DotsIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
-    </motion.article>
+    </motion.button>
 
     {/* Action menu — bottom sheet on mobile (always reachable, never clipped),
         anchored dropdown on desktop. Rendered outside the article to escape
         its stacking context. */}
     <AnimatePresence>
-      {menuOpen && (
+      {menuOpen && isMobile && (
         <>
-          {/* Mobile bottom sheet */}
+          {/* Mobile bottom sheet — only rendered when isMobile is true. We
+              can't rely on `sm:hidden` here because the dropdown below
+              would still be in the React tree (and mounted) on mobile,
+              causing the double-modal bug. Explicit isMobile check fixes
+              that. */}
           <div
-            className="sm:hidden fixed inset-0 z-50 flex items-end justify-center bg-ink/40"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40"
             onClick={() => setMenuOpen(false)}
           >
             <motion.div
@@ -618,6 +586,57 @@ function GiftCard({
           </div>
         </>
       )}
+
+      {/* Desktop dropdown — portaled to document.body with position: fixed
+              calculated from the trigger's bounding rect. Escapes any
+              overflow:hidden / clipping on the parent grid so the menu is
+              always fully visible, even on the rightmost column. Auto-flips
+              to the left when there's not enough room on the right. */}
+          {menuOpen && !isMobile && typeof document !== 'undefined' &&
+            createPortal(
+              <DropdownPosition
+                triggerRef={menuRef}
+                onClose={() => setMenuOpen(false)}
+              >
+                <MenuItem icon={<EditIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onEdit(); }}>
+                  Editar
+                </MenuItem>
+                <div className="h-px bg-ink/5 my-1" />
+                <MenuItem
+                  icon={<ArrowUpIcon className="w-4 h-4" />}
+                  onClick={() => { setMenuOpen(false); onMoveUp(); }}
+                  disabled={isFirst || disabled}
+                >
+                  Mover arriba
+                </MenuItem>
+                <MenuItem
+                  icon={<ArrowDownIcon className="w-4 h-4" />}
+                  onClick={() => { setMenuOpen(false); onMoveDown(); }}
+                  disabled={isLast || disabled}
+                >
+                  Mover abajo
+                </MenuItem>
+                <div className="h-px bg-ink/5 my-1" />
+                {reserved ? (
+                  <MenuItem icon={<UnreserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onRelease(); }}>
+                    Liberar reserva
+                  </MenuItem>
+                ) : (
+                  <MenuItem icon={<ReserveIcon className="w-4 h-4" />} onClick={() => { setMenuOpen(false); onReserve(); }}>
+                    Apartar a nombre de…
+                  </MenuItem>
+                )}
+                <div className="h-px bg-ink/5 my-1" />
+                <MenuItem
+                  icon={<TrashIcon className="w-4 h-4" />}
+                  onClick={() => { setMenuOpen(false); onDelete(); }}
+                  danger
+                >
+                  Eliminar
+                </MenuItem>
+              </DropdownPosition>,
+              document.body,
+            )}
     </AnimatePresence>
     </>
   );
@@ -695,6 +714,66 @@ function SheetItem({
       )}
       {children}
     </button>
+  );
+}
+
+// Position-fixed dropdown. Renders into document.body via createPortal so it
+// escapes any overflow:hidden / clipping context. Computes its position from
+// the trigger's bounding rect on every render, and auto-flips to the left
+// when there isn't enough room on the right (rightmost column of the grid).
+function DropdownPosition({
+  triggerRef,
+  onClose,
+  children,
+}: {
+  triggerRef: React.RefObject<HTMLDivElement | null>;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const MENU_WIDTH = 224; // w-56
+    const GAP = 8;
+    const EDGE = 8;
+
+    // Default: align to the right edge of the trigger.
+    let left = rect.right - MENU_WIDTH;
+    if (left < EDGE) {
+      // Not enough room on the right — align to the left edge of the trigger.
+      left = rect.left;
+    }
+    if (left + MENU_WIDTH > window.innerWidth - EDGE) {
+      // Still doesn't fit — clamp to the right edge of the viewport.
+      left = window.innerWidth - MENU_WIDTH - EDGE;
+    }
+    const top = rect.bottom + GAP;
+    setPos({ top, left });
+  }, [triggerRef]);
+
+  if (!pos) return null;
+
+  return (
+    <>
+      {/* Backdrop catches outside clicks. Transparent on purpose — the real
+          visual backdrop is the page behind. */}
+      <div className="fixed inset-0 z-50" onClick={onClose} aria-hidden />
+      <motion.div
+        initial={{ opacity: 0, y: -4, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -4, scale: 0.96 }}
+        transition={{ duration: 0.15 }}
+        role="menu"
+        style={{ top: pos.top, left: pos.left }}
+        className="fixed z-50 w-56 bg-white rounded-2xl shadow-lift border border-ink/5 overflow-hidden py-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </motion.div>
+    </>
   );
 }
 

@@ -104,7 +104,7 @@ export default function GiftFormModal({
     }
     setSaving(true);
     try {
-      const result = await upsertGift({
+      const payload = {
         id: gift?.id ?? null,
         name: name.trim(),
         description: description.trim() || null,
@@ -112,9 +112,18 @@ export default function GiftFormModal({
         storeUrl: storeUrl.trim() || null,
         order: gift?.order ?? 0,
         active,
+      };
+      // eslint-disable-next-line no-console
+      console.log('[GiftFormModal] submitting payload:', {
+        ...payload,
+        imageUrlLen: payload.imageUrl?.length ?? 0,
+        storeUrlLen: payload.storeUrl?.length ?? 0,
       });
+      const result = await upsertGift(payload);
       if (!result.ok) {
-        setError(result.error);
+        // eslint-disable-next-line no-console
+        console.log('[GiftFormModal] server error:', result);
+        setError(`${result.error}${result.code ? ` [${result.code}]` : ''}`);
         setSaving(false);
         return;
       }
@@ -228,7 +237,7 @@ export default function GiftFormModal({
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-ivory-50 rounded-3xl shadow-lift flex flex-col max-h-[90vh] overflow-hidden"
+        className="w-full max-w-2xl bg-ivory-50 rounded-3xl shadow-lift flex flex-col max-h-[90dvh] overflow-hidden"
       >
         <form id="gift-form" onSubmit={submit} className="flex flex-col flex-1 min-h-0">
           {/* ─── Header ─── */}

@@ -28,16 +28,20 @@ export default async function InvitadosPage() {
   const stats = computeStats(allInvitations);
 
   return (
+    // Stagger reveal of the page hero via CSS-only animation (no JS, no extra
+    // bundle). `animate-fade-up` is defined in globals.css and respects
+    // prefers-reduced-motion automatically. The delays cascade eyebrow → h1
+    // → stats row so the page assembles in editorial order.
     <div className="space-y-6 sm:space-y-10">
       {/* Hero header — sets the editorial tone for the page. */}
       <header className="relative">
         {/* Editorial gold rule with diamond ornament */}
-        <DiamondRule className="mb-5 sm:mb-6 text-gold" />
+        <DiamondRule className="mb-5 sm:mb-6 text-gold animate-fade-up" />
 
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 sm:gap-6">
           <div className="min-w-0 flex-1">
-            <p className="eyebrow text-terracotta">Invitados</p>
-            <h1 className="display-xl text-3xl sm:text-4xl md:text-5xl mt-2">
+            <p className="eyebrow text-terracotta animate-fade-up [animation-delay:80ms]">Invitados</p>
+            <h1 className="display-xl text-3xl sm:text-4xl md:text-5xl mt-2 animate-fade-up [animation-delay:160ms]">
               <span>{stats.total}</span>{' '}
               <span className="text-ink-muted">
                 {stats.total === 1 ? 'invitación' : 'invitaciones'}
@@ -45,7 +49,7 @@ export default async function InvitadosPage() {
             </h1>
           </div>
 
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 animate-fade-up [animation-delay:240ms]">
             <BulkCreateForm />
             <CreateInvitationForm />
           </div>
@@ -54,7 +58,10 @@ export default async function InvitadosPage() {
 
       {/* Stats row — desktop only. On mobile the same numbers live in
           /admin/resumen, so we hide them here to avoid duplication. */}
-      <section aria-label="Resumen de invitaciones" className="hidden sm:block">
+      <section
+        aria-label="Resumen de invitaciones"
+        className="hidden sm:block animate-fade-up [animation-delay:320ms]"
+      >
         <StatsRow stats={stats} />
       </section>
 

@@ -116,6 +116,17 @@ body > * {
     font-size: 0.72rem;
     font-weight: 500;
   }
+  /* Shared form input — single source of truth for text inputs / textareas /
+     selects across the app. Mirrors the guest-form inputs so admin + guest
+     stay visually consistent. The 16px min font-size (enforced globally in
+     @layer base too) keeps iOS from auto-zooming on focus. */
+  .mella-input {
+    @apply w-full rounded-xl border border-ink/15 bg-ivory-50 px-4 py-3 text-ink transition-colors;
+    @apply focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta/40;
+  }
+  .mella-input::placeholder {
+    @apply text-ink-muted;
+  }
 }
 
 html {

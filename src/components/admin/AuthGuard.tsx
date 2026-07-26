@@ -39,7 +39,7 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   // After hydration on a non-login page: require auth.
   if (!isAuthenticated && !isLoginPage) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] px-6">
+      <div className="flex items-center justify-center min-h-[60dvh] px-6">
         <div className="text-center">
           <div className="w-8 h-8 mx-auto mb-4 border-2 border-ink/15 border-t-terracotta rounded-full animate-spin" />
           <p className="text-sm text-ink-muted">Verificando sesión…</p>
