@@ -28,22 +28,27 @@ export default function MotoScroll({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // We hold the whole sequence for the entire scroll. The clip is short and the
-  // JPGs are small (~85KB), so there's no need to evict — and evicting then
-  // reloading frames was exactly what made the video flash/disappear while
-  // scrolling. We don't force-decode every frame; drawImage decodes on demand
-  // and the browser manages its own decoded-bitmap cache.
+
+  // Whole sequence stays loaded for the entire scroll (short clip, ~85KB JPGs)
+  // so we never evict-then-reload — that was what made frames flash/disappear.
   const imagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
+
+  // Hot-path refs — kept out of React state so scrubbing doesn't re-render.
   const rafRef = useRef<number | null>(null);
+  const latestIdxRef = useRef(0);
+  const paintedIdxRef = useRef(-1);
 
   const [loadedCount, setLoadedCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
+  // Only used to render the (opt-in) frame counter. Not touched during scroll
+  // unless the counter is actually visible.
   const [currentFrame, setCurrentFrame] = useState(0);
 
-  // ---- 1. Load the whole sequence up front, in order, so the first frames
-  //         arrive first and we can reveal without waiting for all 96. ----
+  // ---- 1. Preload the whole sequence, pre-decoded, in order. We reveal as
+  //         soon as the first frames are ready rather than waiting for all. ----
   useEffect(() => {
     imagesRef.current = new Map();
+    paintedIdxRef.current = -1;
     setLoadedCount(0);
     setIsReady(false);
 
@@ -61,22 +66,23 @@ export default function MotoScroll({
     const load = (n: number) => {
       const img = new Image();
       img.decoding = 'async';
-      img.onload = () => {
+      const finish = () => {
         if (cancelled) return;
         imagesRef.current.set(n, img);
         advance();
       };
+      img.onload = () => {
+        // Decode off the critical path so the first draw of each frame doesn't
+        // block the main thread mid-scroll. Fall back to using it undecoded.
+        if ('decode' in img) img.decode().then(finish).catch(finish);
+        else finish();
+      };
       img.onerror = () => {
-        // A single missing frame shouldn't stall the loader — just advance.
         // eslint-disable-next-line no-console
         console.warn(`[MotoScroll] failed: ${img.src}`);
         advance();
       };
       img.src = framePath(n);
-      if (img.complete && img.naturalWidth) {
-        imagesRef.current.set(n, img);
-        advance();
-      }
     };
 
     for (let i = 1; i <= totalFrames; i++) load(i);
@@ -92,26 +98,16 @@ export default function MotoScroll({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // alpha:true → unpainted areas are transparent and reveal the ivory stage
-    // behind the canvas, instead of a black backdrop.
+    // alpha:true → unpainted areas are transparent and reveal the ivory stage.
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.floor(rect.width * dpr);
-      canvas.height = Math.floor(rect.height * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-    };
+    // Cache CSS-pixel dimensions so the draw hot-path never calls
+    // getBoundingClientRect (which forces layout).
+    const dims = { cw: 0, ch: 0 };
 
     // Return the requested frame, or the nearest already-loaded one, so the
-    // canvas is NEVER left empty mid-scroll while a frame is still loading.
+    // canvas is never left empty mid-scroll while a frame is still decoding.
     const pickFrame = (idx: number): HTMLImageElement | null => {
       const exact = imagesRef.current.get(idx + 1);
       if (exact && exact.naturalWidth) return exact;
@@ -125,15 +121,10 @@ export default function MotoScroll({
     };
 
     const draw = (idx: number) => {
-      const rect = canvas.getBoundingClientRect();
-      const cw = rect.width;
-      const ch = rect.height;
-
-      // Clear to transparent — the ivory stage shows through any margin/gap.
+      const { cw, ch } = dims;
       ctx.clearRect(0, 0, cw, ch);
-
       const frame = pickFrame(idx);
-      if (!frame) return; // nothing loaded yet (the loader is covering this)
+      if (!frame) return; // nothing decoded yet (loader is covering this)
 
       const scale =
         fit === 'cover'
@@ -144,7 +135,6 @@ export default function MotoScroll({
       const dx = (cw - dw) / 2;
       const dy = (ch - dh) / 2;
 
-      // Round positions to whole pixels in CSS space to avoid sub-pixel blur.
       ctx.drawImage(
         frame,
         Math.round(dx),
@@ -154,19 +144,43 @@ export default function MotoScroll({
       );
     };
 
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      dims.cw = rect.width;
+      dims.ch = rect.height;
+
+      // DPR capped at 2 (a scroll-video doesn't need 3×), and the backing
+      // store is bounded so huge monitors don't pay for pixels the ≤1280px
+      // source frames can't fill anyway. Both slash per-frame fill cost.
+      const MAX_SIDE = 2560;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let bw = rect.width * dpr;
+      let bh = rect.height * dpr;
+      const k = Math.min(1, MAX_SIDE / Math.max(bw, bh, 1));
+      bw *= k;
+      bh *= k;
+      canvas.width = Math.max(1, Math.floor(bw));
+      canvas.height = Math.max(1, Math.floor(bh));
+
+      const effDpr = canvas.width / rect.width || 1;
+      ctx.setTransform(effDpr, 0, 0, effDpr, 0, 0);
+      // 'medium' is ~indistinguishable from 'high' on already-upscaled source
+      // frames, at a fraction of the cost.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+
+      draw(latestIdxRef.current);
+    };
+
+    drawRef.current = draw;
     resize();
     window.addEventListener('resize', resize, { passive: true });
-    drawRef.current = draw;
-
-    if (isReady) draw(currentFrame);
-
     return () => window.removeEventListener('resize', resize);
-    // currentFrame is intentionally omitted — the scroll handler drives redraws;
-    // this effect only needs to (re)initialise on ready / fit / count changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, fit, totalFrames]);
 
-  // ---- 3. Scroll → frame index, throttled to one paint per animation frame ----
+  // ---- 3. Scroll → frame index. Paint is coalesced to one per animation
+  //         frame; React state is left untouched unless the counter is shown. ----
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
@@ -177,13 +191,16 @@ export default function MotoScroll({
   useMotionValueEvent(frameIndex, 'change', (latest) => {
     if (!isReady) return;
     const idx = Math.max(0, Math.min(totalFrames - 1, Math.round(latest)));
-    setCurrentFrame(idx);
+    latestIdxRef.current = idx;
 
-    // Coalesce multiple motion-value updates into one paint.
     if (rafRef.current != null) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
-      drawRef.current(idx);
+      const i = latestIdxRef.current;
+      if (i === paintedIdxRef.current) return; // scroll moved sub-frame — skip
+      paintedIdxRef.current = i;
+      drawRef.current(i);
+      if (showFrameCounter) setCurrentFrame(i);
     });
   });
 
