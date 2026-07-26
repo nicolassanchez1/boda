@@ -31,28 +31,17 @@ type Props = {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-// The text block for a beat. Transparent (no card), so the entrance stays
-// simple: a smooth fade + gentle rise — no scale, no child delay, no backdrop
-// blur. Removing the old "settle then pop" gap is what stops the transition
-// from looking cut/janky on mobile.
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: EASE, staggerChildren: 0.05 },
-  },
+// A beat animates as ONE block (not per-line): a single fade + gentle rise.
+// Animating the whole block as one compositor layer — instead of staggering
+// several glowing text nodes — is what keeps the beat changes smooth on mobile.
+const beatVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
   exit: {
     opacity: 0,
-    y: -14,
-    transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] as const },
+    y: -12,
+    transition: { duration: 0.35, ease: [0.4, 0, 0.2, 1] as const },
   },
-};
-
-// Each line rises in, inheriting the small stagger from its parent beat.
-const lineVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
 };
 
 export default function GuestCinematic({
@@ -89,6 +78,37 @@ export default function GuestCinematic({
     setBeat((prev) => (prev === next ? prev : next));
   });
 
+  // The overlays (text beats, rail, hint) are position:fixed so they stay
+  // pinned over the sticky video. But once the guest scrolls PAST the cinematic
+  // into the RSVP form below, fixed elements would otherwise stay stuck on
+  // screen and cover the form. So we hide them the moment the section's bottom
+  // rises into the viewport (i.e. the video is scrolling away and the form is
+  // taking over). `activeBeat` becomes -1, letting AnimatePresence fade the
+  // last beat out cleanly.
+  const [cinematicActive, setCinematicActive] = useState(true);
+  useEffect(() => {
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const el = ref.current;
+      if (!el) return;
+      const vh = window.innerHeight || 1;
+      setCinematicActive(el.getBoundingClientRect().bottom > vh * 0.85);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    check();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+  const activeBeat = cinematicActive ? beat : -1;
+
   // As the user nears the end, the cinematic fades to ivory to soften the join
   // into the RSVP section below.
   const cinematicFadeIvory = useTransform(
@@ -122,7 +142,6 @@ export default function GuestCinematic({
           }
           fit="cover"
           showFrameCounter={false}
-          loaderLabel="Nuestra boda"
         />
       )}
 
@@ -141,77 +160,67 @@ export default function GuestCinematic({
         aria-hidden
       >
         <AnimatePresence>
-          {beat === 0 && (
+          {activeBeat === 0 && (
             <motion.div
               key="beat-0"
-              variants={cardVariants}
+              variants={beatVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="absolute"
+              style={{ willChange: 'transform, opacity' }}
+              className="absolute transform-gpu"
             >
               <OverlayCard>
-                <motion.p variants={lineVariants} className="eyebrow text-terracotta mb-3">
-                  Con mucho cariño
-                </motion.p>
-                <motion.h2
-                  variants={lineVariants}
-                  className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95]"
-                >
+                <p className="eyebrow text-terracotta mb-3">Con mucho cariño</p>
+                <h2 className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95]">
                   Nos vamos
                   <br />
                   <em className="display-italic text-terracotta-dark">a casar</em>
-                </motion.h2>
+                </h2>
               </OverlayCard>
             </motion.div>
           )}
 
-          {beat === 1 && (
+          {activeBeat === 1 && (
             <motion.div
               key="beat-1"
-              variants={cardVariants}
+              variants={beatVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="absolute"
+              style={{ willChange: 'transform, opacity' }}
+              className="absolute transform-gpu"
             >
               <OverlayCard wide>
-                <motion.h2
-                  variants={lineVariants}
-                  className="display-xl text-[clamp(1.875rem,6vw,3.75rem)] text-ink leading-[1.05]"
-                >
+                <h2 className="display-xl text-[clamp(1.875rem,6vw,3.75rem)] text-ink leading-[1.05]">
                   Y no queremos
                   <br />
                   <em className="display-italic text-terracotta-dark">celebrarlo sin ti</em>
-                </motion.h2>
+                </h2>
               </OverlayCard>
             </motion.div>
           )}
 
-          {beat === 2 && (
+          {activeBeat === 2 && (
             <motion.div
               key="beat-2"
-              variants={cardVariants}
+              variants={beatVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="absolute"
+              style={{ willChange: 'transform, opacity' }}
+              className="absolute transform-gpu"
             >
               <OverlayCard>
-                <motion.p variants={lineVariants} className="eyebrow text-terracotta mb-3">
-                  Esta invitación es para
-                </motion.p>
-                <motion.h2
-                  variants={lineVariants}
-                  className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95] break-words"
-                >
+                <p className="eyebrow text-terracotta mb-3">Esta invitación es para</p>
+                <h2 className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95] break-words">
                   {guestName}
-                </motion.h2>
-                <motion.p variants={lineVariants} className="mt-3 smallcaps text-ink-muted">
+                </h2>
+                <p className="mt-3 smallcaps text-ink-muted">
                   {cupos} {cupos === 1 ? 'persona' : 'personas'}
-                </motion.p>
+                </p>
                 {(weddingInfo.date || weddingInfo.time || weddingInfo.venue) && (
-                  <motion.div variants={lineVariants}>
+                  <div>
                     <div className="gold-rule w-24 mx-auto my-6" />
                     {weddingInfo.date && (
                       <p className="display-italic text-2xl sm:text-3xl text-terracotta-dark">
@@ -222,7 +231,7 @@ export default function GuestCinematic({
                     {weddingInfo.venue && (
                       <p className="mt-1 smallcaps text-ink-muted/70">{weddingInfo.venue}</p>
                     )}
-                  </motion.div>
+                  </div>
                 )}
               </OverlayCard>
             </motion.div>
@@ -230,40 +239,48 @@ export default function GuestCinematic({
         </AnimatePresence>
       </div>
 
-      {/* Side progress rail — terracotta */}
-      <motion.div
-        style={{ opacity: railVisible }}
-        className="fixed right-4 sm:right-6 top-[12dvh] bottom-[14dvh] w-px z-30 pointer-events-none"
-        aria-hidden
-      >
-        <div className="absolute inset-0 bg-terracotta/20" />
-        <motion.div
-          style={{ height: railHeight }}
-          className="absolute inset-x-0 top-0 bg-terracotta origin-top"
-        />
-        <motion.div
-          style={{ top: railHeight }}
-          className="absolute -left-[3px] -translate-y-1/2 w-2 h-2 rounded-full bg-terracotta shadow-[0_0_12px_rgba(184,92,56,0.7)]"
-        />
-      </motion.div>
+      {/* Side progress rail + scroll hint — also fixed, so they're gated on the
+          cinematic being in view (same reason as the beats above). */}
+      {cinematicActive && (
+        <>
+          <motion.div
+            style={{ opacity: railVisible }}
+            className="fixed right-4 sm:right-6 top-[12dvh] bottom-[14dvh] w-px z-30 pointer-events-none"
+            aria-hidden
+          >
+            <div className="absolute inset-0 bg-terracotta/20" />
+            <motion.div
+              style={{ height: railHeight }}
+              className="absolute inset-x-0 top-0 bg-terracotta origin-top"
+            />
+            <motion.div
+              style={{ top: railHeight }}
+              className="absolute -left-[3px] -translate-y-1/2 w-2 h-2 rounded-full bg-terracotta shadow-[0_0_12px_rgba(184,92,56,0.7)]"
+            />
+          </motion.div>
 
-      {/* Initial scroll hint — fades out once the user starts scrolling. */}
-      <motion.div
-        style={{ opacity: scrollHintOpacity }}
-        className="fixed bottom-[3dvh] left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-        aria-hidden
-      >
-        <motion.div
-          animate={{ y: [0, 6, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <OverlayCard compact>
-            <p className="text-[0.6rem] tracking-[0.4em] uppercase text-ink-muted">
-              Scroll ↓
-            </p>
-          </OverlayCard>
-        </motion.div>
-      </motion.div>
+          <motion.div
+            style={{ opacity: scrollHintOpacity }}
+            className="cine-text fixed bottom-[4dvh] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none"
+            aria-hidden
+          >
+            <span className="smallcaps text-ink-soft">Desliza para descubrir</span>
+            <motion.svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-6 h-6 text-terracotta"
+              animate={{ y: [0, 7, 0], opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <path d="M12 4 L12 18 M6 13 L12 19 L18 13" />
+            </motion.svg>
+          </motion.div>
+        </>
+      )}
     </div>
   );
 }

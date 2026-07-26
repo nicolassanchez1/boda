@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  motion,
-  useScroll,
-  useTransform,
-  useMotionValueEvent,
-} from 'framer-motion';
+import { useScroll, useTransform, useMotionValueEvent } from 'framer-motion';
 
 type Props = {
   totalFrames?: number;
@@ -15,8 +10,6 @@ type Props = {
   // 'cover' fills the stage (crops the overflow) — right for footage whose
   // aspect ratio matches the viewport. 'contain' fits the whole frame.
   fit?: 'cover' | 'contain';
-  // Optional eyebrow shown in the loader. Omit for none.
-  loaderLabel?: string;
 };
 
 export default function MotoScroll({
@@ -24,7 +17,6 @@ export default function MotoScroll({
   framePath = (i) => `/frames/desktop/frame_${String(i).padStart(4, '0')}.jpg`,
   showFrameCounter = true,
   fit = 'cover',
-  loaderLabel,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,7 +30,6 @@ export default function MotoScroll({
   const latestIdxRef = useRef(0);
   const paintedIdxRef = useRef(-1);
 
-  const [loadedCount, setLoadedCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
   // Only used to render the (opt-in) frame counter. Not touched during scroll
   // unless the counter is actually visible.
@@ -49,17 +40,17 @@ export default function MotoScroll({
   useEffect(() => {
     imagesRef.current = new Map();
     paintedIdxRef.current = -1;
-    setLoadedCount(0);
     setIsReady(false);
 
     let count = 0;
     let cancelled = false;
-    const readyAt = Math.min(12, totalFrames);
+    // Reveal the video as soon as a couple of frames are decoded — no loader,
+    // just a brief ivory ground, then the footage fades in.
+    const readyAt = Math.min(2, totalFrames);
 
     const advance = () => {
       if (cancelled) return;
       count++;
-      setLoadedCount(count);
       if (count >= readyAt) setIsReady(true);
     };
 
@@ -216,31 +207,8 @@ export default function MotoScroll({
           style={{ imageRendering: 'auto' }}
         />
 
-        {/* Loader — warm ivory ground, ink text. */}
-        {!isReady && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ivory-50 text-ink">
-            <div className="text-center max-w-xs px-6">
-              {loaderLabel && (
-                <p className="eyebrow text-terracotta mb-6">{loaderLabel}</p>
-              )}
-              <div className="w-12 h-12 mx-auto mb-6 border-2 border-ink/15 border-t-terracotta rounded-full animate-spin" />
-              {/* Progress bar */}
-              <div className="relative h-px w-full bg-ink/10 mb-3 overflow-hidden">
-                <motion.div
-                  className="absolute inset-y-0 left-0 bg-terracotta"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(loadedCount / totalFrames) * 100}%` }}
-                  transition={{ duration: 0.2 }}
-                />
-              </div>
-              <p className="text-[0.65rem] tracking-[0.3em] uppercase text-ink-muted">
-                <span className="text-ink">{String(loadedCount).padStart(3, '0')}</span>
-                {' / '}
-                {String(totalFrames).padStart(3, '0')}
-              </p>
-            </div>
-          </div>
-        )}
+        {/* No loader — while the first frames decode the ivory stage shows
+            through; the canvas fades in as soon as the video is ready. */}
 
         {/* Frame counter — opt-in (off for the guest cinematic). */}
         {isReady && showFrameCounter && (
