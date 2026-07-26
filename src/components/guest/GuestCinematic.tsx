@@ -2,18 +2,27 @@
 
 // Cinematic intro for the guest invitation.
 //
-// Scroll-scrubbed 96-frame sequence (desktop 16:9 / mobile 9:16) with four text beats:
-//   1.  0–25%   "Nos vamos a casar"
-//   2. 25–60%   "queremos que seas parte de esto"
-//   3. 60–90%   <guest name> + wedding date / venue
-//   4. 90–100%  CTA → scroll into the RSVP section below
+// Scroll-scrubbed 96-frame sequence (desktop 16:9 / mobile 9:16) behind three
+// narrative "beats" plus a CTA:
+//   Beat 0  (0–30%)   "Nos vamos a casar"
+//   Beat 1  (30–60%)  "Y no queremos celebrarlo sin ti"
+//   Beat 2  (60–100%) <guest name> + wedding date / venue
+//   CTA     (88–100%) → scroll into the RSVP section below
 //
-// Aesthetic: editorial wedding palette (ivory + ink + terracotta + gold). The
-// footage sits behind translucent ivory cards that tint the frames and keep the
-// overlay text legible without losing the moody, cinematic feel.
+// Each beat is a proper entrance animation (NOT a raw scroll-linked fade): the
+// scroll position selects the active beat, and framer-motion plays a staggered
+// reveal where the ivory card settles FIRST and the text rises in AFTER. That
+// fixes the old bug where the text was legible before its background — over the
+// dark footage the floating letters read as broken.
 
 import { useRef, useState, useEffect } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import {
+  motion,
+  AnimatePresence,
+  useScroll,
+  useTransform,
+  useMotionValueEvent,
+} from 'framer-motion';
 import MotoScroll from '@/components/MotoScroll';
 
 type Props = {
@@ -21,6 +30,39 @@ type Props = {
   cupos: number;
   weddingInfo: { date: string; time: string; venue: string };
   rsvpAnchorId: string;
+};
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+// Parent (the card). Fades + scales in as a surface. `delayChildren` holds the
+// text back until the ivory ground is established; `staggerChildren` cascades
+// the lines. On exit the whole card lifts and fades as one.
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.94, y: 28 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      duration: 0.7,
+      ease: EASE,
+      delayChildren: 0.3,
+      staggerChildren: 0.1,
+    },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.98,
+    y: -18,
+    transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] as const },
+  },
+};
+
+// Each text line rises into place. Inherits orchestration (delay/stagger) from
+// the parent card via framer-motion's variant context.
+const lineVariants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
 };
 
 export default function GuestCinematic({
@@ -49,51 +91,34 @@ export default function GuestCinematic({
   }, []);
   const variant = isDesktop ? 'desktop' : 'mobile';
 
-  // Each overlay fades in at its start range and fades out as the next takes
-  // over. Slight Y on each gives the "rises into place" editorial feel.
-  const phase1Opacity = useTransform(
-    scrollYProgress,
-    [0, 0.05, 0.2, 0.25],
-    [1, 1, 1, 0],
-  );
-  const phase1Y = useTransform(scrollYProgress, [0, 0.25], [0, -30]);
+  // Scroll position → active beat (0/1/2). Only changes 2–3 times across the
+  // whole scroll, so this drives at most a couple of re-renders — the reveal
+  // itself is a time-based animation, decoupled from the scroll velocity.
+  const [beat, setBeat] = useState(0);
+  useMotionValueEvent(scrollYProgress, 'change', (p) => {
+    const next = p < 0.3 ? 0 : p < 0.6 ? 1 : 2;
+    setBeat((prev) => (prev === next ? prev : next));
+  });
 
-  const phase2Opacity = useTransform(
-    scrollYProgress,
-    [0.22, 0.28, 0.55, 0.62],
-    [0, 1, 1, 0],
-  );
-  const phase2Y = useTransform(scrollYProgress, [0.22, 0.62], [40, -40]);
+  // CTA appears near the end and stays. Kept scroll-linked — it's a persistent
+  // affordance, not a narrative beat.
+  const ctaOpacity = useTransform(scrollYProgress, [0.86, 0.93], [0, 1]);
+  const ctaY = useTransform(scrollYProgress, [0.86, 0.93], [24, 0]);
 
-  const phase3Opacity = useTransform(
-    scrollYProgress,
-    [0.58, 0.65, 0.85, 0.9],
-    [0, 1, 1, 0],
-  );
-  const phase3Y = useTransform(scrollYProgress, [0.58, 0.9], [40, -40]);
-
-  const phase4Opacity = useTransform(
-    scrollYProgress,
-    [0.88, 0.94, 0.99, 1],
-    [0, 1, 1, 0.5],
-  );
-  const phase4Y = useTransform(scrollYProgress, [0.88, 1], [40, 0]);
-
-  // As the user scrolls past ~75%, the cinematic itself fades to ivory to
-  // soften the transition into the RSVP section below.
+  // As the user nears the end, the cinematic fades to ivory to soften the join
+  // into the RSVP section below.
   const cinematicFadeIvory = useTransform(
     scrollYProgress,
-    [0.75, 1],
+    [0.8, 1],
     ['rgba(253,251,247,0)', 'rgba(253,251,247,1)'],
   );
 
-  // Side progress rail (right edge) — terracotta dot growing
-  const railVisible = useTransform(
-    scrollYProgress,
-    [0, 0.02, 0.98, 1],
-    [0, 1, 1, 0],
-  );
+  // Side progress rail (right edge) — terracotta dot growing.
+  const railVisible = useTransform(scrollYProgress, [0, 0.02, 0.98, 1], [0, 1, 1, 0]);
   const railHeight = useTransform(scrollYProgress, [0.02, 0.98], ['0%', '100%']);
+
+  // Scroll hint fades out once the user starts scrolling.
+  const scrollHintOpacity = useTransform(scrollYProgress, [0, 0.03, 0.08], [1, 1, 0]);
 
   const scrollToRsvp = () => {
     document.getElementById(rsvpAnchorId)?.scrollIntoView({ behavior: 'smooth' });
@@ -105,9 +130,9 @@ export default function GuestCinematic({
           (the canvas is transparent where a frame doesn't reach). */}
       <div className="absolute inset-0 bg-ivory-50" aria-hidden />
 
-      {/* Scroll-scrubbed wedding footage. We pick the frame set that matches
-          the viewport orientation (desktop 16:9 / mobile 9:16) and remount on
-          breakpoint change via `key`. */}
+      {/* Scroll-scrubbed wedding footage. Frame set matches the viewport
+          orientation (desktop 16:9 / mobile 9:16); remounts on breakpoint
+          change via `key`. */}
       {isDesktop !== null && (
         <MotoScroll
           key={variant}
@@ -121,77 +146,113 @@ export default function GuestCinematic({
         />
       )}
 
-      {/* Soft ivory tint that grows as the user reaches the end of the scroll,
-          making the join to the RSVP section feel continuous rather than
-          "hitting a wall of black". */}
+      {/* Soft ivory tint that grows toward the end, making the join to the RSVP
+          section feel continuous. */}
       <motion.div
         style={{ background: cinematicFadeIvory }}
         className="pointer-events-none absolute inset-0 z-10"
         aria-hidden
       />
 
-      {/* Phase 1: "Nos vamos a casar" */}
-      <motion.div
-        style={{ opacity: phase1Opacity, y: phase1Y }}
-        className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none px-6"
+      {/* ─── Narrative beats ─── The active one plays a staggered reveal:
+           card settles first, text rises in after. */}
+      <div
+        className="fixed inset-0 z-20 flex items-center justify-center px-6 pointer-events-none"
         aria-hidden
       >
-        <OverlayCard>
-          <p className="eyebrow text-terracotta mb-3">Una invitación</p>
-          <h2 className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95]">
-            Nos vamos
-            <br />
-            <em className="display-italic text-terracotta-dark">a casar</em>
-          </h2>
-        </OverlayCard>
-      </motion.div>
-
-      {/* Phase 2: "queremos que seas parte de esto" */}
-      <motion.div
-        style={{ opacity: phase2Opacity, y: phase2Y }}
-        className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none px-6"
-        aria-hidden
-      >
-        <OverlayCard wide>
-          <h2 className="display-xl text-[clamp(1.875rem,6vw,3.75rem)] text-ink leading-[1.05]">
-            Y queremos que seas
-            <br />
-            <em className="display-italic text-terracotta-dark">parte de esto</em>
-          </h2>
-        </OverlayCard>
-      </motion.div>
-
-      {/* Phase 3: guest name + wedding info */}
-      <motion.div
-        style={{ opacity: phase3Opacity, y: phase3Y }}
-        className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none px-6"
-        aria-hidden
-      >
-        <OverlayCard>
-          <p className="eyebrow text-terracotta mb-2">Esta invitación es para</p>
-          <h2 className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95] break-words">
-            {guestName}
-          </h2>
-          <p className="mt-2 smallcaps text-ink-muted">
-            {cupos} {cupos === 1 ? 'persona' : 'personas'}
-          </p>
-          {weddingInfo.date && (
-            <p className="mt-6 display-italic text-2xl sm:text-3xl text-terracotta-dark">
-              {weddingInfo.date}
-            </p>
+        <AnimatePresence>
+          {beat === 0 && (
+            <motion.div
+              key="beat-0"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="absolute"
+            >
+              <OverlayCard>
+                <motion.p variants={lineVariants} className="eyebrow text-terracotta mb-3">
+                  Con mucho cariño
+                </motion.p>
+                <motion.h2
+                  variants={lineVariants}
+                  className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95]"
+                >
+                  Nos vamos
+                  <br />
+                  <em className="display-italic text-terracotta-dark">a casar</em>
+                </motion.h2>
+              </OverlayCard>
+            </motion.div>
           )}
-          {weddingInfo.time && (
-            <p className="mt-1 text-ink-muted">{weddingInfo.time}</p>
-          )}
-          {weddingInfo.venue && (
-            <p className="mt-1 smallcaps text-ink-muted/70">{weddingInfo.venue}</p>
-          )}
-        </OverlayCard>
-      </motion.div>
 
-      {/* Phase 4: CTA — small enough to not need a backdrop since it's a button */}
+          {beat === 1 && (
+            <motion.div
+              key="beat-1"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="absolute"
+            >
+              <OverlayCard wide>
+                <motion.h2
+                  variants={lineVariants}
+                  className="display-xl text-[clamp(1.875rem,6vw,3.75rem)] text-ink leading-[1.05]"
+                >
+                  Y no queremos
+                  <br />
+                  <em className="display-italic text-terracotta-dark">celebrarlo sin ti</em>
+                </motion.h2>
+              </OverlayCard>
+            </motion.div>
+          )}
+
+          {beat === 2 && (
+            <motion.div
+              key="beat-2"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="absolute"
+            >
+              <OverlayCard>
+                <motion.p variants={lineVariants} className="eyebrow text-terracotta mb-3">
+                  Esta invitación es para
+                </motion.p>
+                <motion.h2
+                  variants={lineVariants}
+                  className="display-xl text-[clamp(2.25rem,7vw,4.5rem)] text-ink leading-[0.95] break-words"
+                >
+                  {guestName}
+                </motion.h2>
+                <motion.p variants={lineVariants} className="mt-3 smallcaps text-ink-muted">
+                  {cupos} {cupos === 1 ? 'persona' : 'personas'}
+                </motion.p>
+                {(weddingInfo.date || weddingInfo.time || weddingInfo.venue) && (
+                  <motion.div variants={lineVariants}>
+                    <div className="gold-rule w-24 mx-auto my-6" />
+                    {weddingInfo.date && (
+                      <p className="display-italic text-2xl sm:text-3xl text-terracotta-dark">
+                        {weddingInfo.date}
+                      </p>
+                    )}
+                    {weddingInfo.time && <p className="mt-1 text-ink-muted">{weddingInfo.time}</p>}
+                    {weddingInfo.venue && (
+                      <p className="mt-1 smallcaps text-ink-muted/70">{weddingInfo.venue}</p>
+                    )}
+                  </motion.div>
+                )}
+              </OverlayCard>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* CTA — appears near the end and stays. */}
       <motion.div
-        style={{ opacity: phase4Opacity, y: phase4Y }}
+        style={{ opacity: ctaOpacity, y: ctaY }}
         className="fixed inset-x-0 bottom-[14dvh] z-20 flex justify-center px-6 pointer-events-none"
       >
         <button
@@ -232,26 +293,31 @@ export default function GuestCinematic({
         />
       </motion.div>
 
-      {/* Initial scroll hint */}
+      {/* Initial scroll hint — fades out once the user starts scrolling. */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: [1, 0.6, 1] }}
-        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ opacity: scrollHintOpacity }}
         className="fixed bottom-[3dvh] left-1/2 -translate-x-1/2 z-20 pointer-events-none"
         aria-hidden
       >
-        <OverlayCard compact>
-          <p className="text-[0.6rem] tracking-[0.4em] uppercase text-ink-muted">Scroll ↓</p>
-        </OverlayCard>
+        <motion.div
+          animate={{ y: [0, 6, 0] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <OverlayCard compact>
+            <p className="text-[0.6rem] tracking-[0.4em] uppercase text-ink-muted">
+              Scroll ↓
+            </p>
+          </OverlayCard>
+        </motion.div>
       </motion.div>
     </div>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Reusable card for the overlays — ivory with subtle ivory tint, terracotta accent
-// line, soft shadow. Light enough to stay legible over the dark video frames
-// while still feeling on-brand with /admin.
+// Reusable overlay card — a nearly-opaque ivory surface with a strong blur and
+// a soft, deep shadow so it reads as a solid card the instant it appears, even
+// over the darkest footage. Centered text; gold/ink accents on brand.
 // -----------------------------------------------------------------------------
 
 function OverlayCard({
@@ -266,8 +332,15 @@ function OverlayCard({
   return (
     <div
       className={[
-        'inline-block max-w-[90vw] bg-ivory-50/92 backdrop-blur-md rounded-3xl shadow-lift border border-ink/10',
-        compact ? 'px-4 py-2' : wide ? 'px-8 sm:px-12 py-6 sm:py-8' : 'px-6 sm:px-10 py-6 sm:py-8',
+        'inline-block max-w-[90vw] text-center',
+        'bg-ivory-50/95 backdrop-blur-xl',
+        'rounded-[2rem] ring-1 ring-ink/10',
+        'shadow-[0_24px_70px_-20px_rgba(42,37,32,0.4)]',
+        compact
+          ? 'px-5 py-2.5'
+          : wide
+          ? 'px-9 sm:px-14 py-8 sm:py-11'
+          : 'px-8 sm:px-12 py-8 sm:py-10',
       ].join(' ')}
     >
       {children}
