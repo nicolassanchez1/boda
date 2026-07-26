@@ -36,16 +36,21 @@ export default async function InvitationPage({ params }: { params: { slug: strin
       .catch(() => {});
   }
 
-  const [mainDishes, drinks, allGifts] = await Promise.all([
+  const [mainDishes, sides, drinks, allGifts] = await Promise.all([
     prisma.menuItem.findMany({
       where: { type: 'MAIN_DISH', active: true },
       orderBy: { order: 'asc' },
-      select: { id: true, name: true, description: true },
+      select: { id: true, name: true, description: true, imageUrl: true },
+    }),
+    prisma.menuItem.findMany({
+      where: { type: 'SIDE', active: true },
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, description: true, imageUrl: true },
     }),
     prisma.menuItem.findMany({
       where: { type: 'DRINK', active: true },
       orderBy: { order: 'asc' },
-      select: { id: true, name: true, description: true },
+      select: { id: true, name: true, description: true, imageUrl: true },
     }),
     prisma.gift.findMany({
       where: { active: true },
@@ -80,7 +85,7 @@ export default async function InvitationPage({ params }: { params: { slug: strin
         })),
         reservedGiftIds: invitation.gifts.map((g) => g.id),
       }}
-      menu={{ mainDishes, drinks }}
+      menu={{ mainDishes, sides, drinks }}
       gifts={allGifts.map((g) => ({
         id: g.id,
         name: g.name,

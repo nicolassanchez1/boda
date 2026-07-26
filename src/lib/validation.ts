@@ -120,16 +120,26 @@ export const manualReserveGiftSchema = z.object({
 
 export const upsertMenuItemSchema = z.object({
   id: z.string().nullable().optional(),
-  type: z.enum(['MAIN_DISH', 'DRINK']),
+  type: z.enum(['MAIN_DISH', 'SIDE', 'DRINK']),
   name: trimmedNonEmpty,
   description: z.string().trim().max(500).nullable().optional(),
+  // Menu photos are usually a local path (/menu/….jpg) but an external image
+  // URL is fine too. Admin-only input, so a lenient string (not the SSRF-safe
+  // fetch validator the gifts use) is enough — we only render it in an <img>.
+  imageUrl: z
+    .string()
+    .trim()
+    .max(1000)
+    .nullable()
+    .optional()
+    .or(z.literal('').transform(() => null)),
   order: z.coerce.number().int().min(0).max(9999).default(0),
   active: z.coerce.boolean().default(true),
 });
 
 export const deleteMenuItemSchema = z.object({ id: trimmedNonEmpty });
 export const reorderMenuSchema = z.object({
-  type: z.enum(['MAIN_DISH', 'DRINK']),
+  type: z.enum(['MAIN_DISH', 'SIDE', 'DRINK']),
   ids: z.array(trimmedNonEmpty).min(1).max(500),
 });
 

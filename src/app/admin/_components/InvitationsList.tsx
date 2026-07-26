@@ -488,63 +488,77 @@ function InvitationCard({
         {/* Left accent bar — color rail for status at-a-glance */}
         <div className={['absolute left-0 top-0 bottom-0 w-1.5', accentColor].join(' ')} />
 
-        <div className="pl-6 pr-5 py-4 sm:pl-7 sm:pr-6 sm:py-5">
-          {/* ─── Header row: name + status badge in top-right corner ─── */}
-          <div className="flex items-start justify-between gap-2 sm:gap-3">
-            <h3 className="font-display text-xl sm:text-2xl text-ink leading-tight truncate min-w-0 flex-1">
-              {invitation.guestName}
-            </h3>
-            <div className="shrink-0 pt-0.5">
+        <div className="pl-6 pr-4 py-4 sm:pl-7 sm:pr-5 sm:py-5">
+          {/* ─── Header: name + cupos subtitle · status · tap affordance ─── */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-display text-xl sm:text-2xl text-ink leading-tight truncate">
+                {invitation.guestName}
+              </h3>
+              <p className="text-xs text-ink-muted mt-1 inline-flex items-center gap-1.5">
+                <UsersIcon className="w-3.5 h-3.5 text-ink-muted/70" />
+                {invitation.attending != null
+                  ? `${invitation.attending} de ${invitation.cupos} ${invitation.cupos === 1 ? 'cupo' : 'cupos'}`
+                  : `${invitation.cupos} ${invitation.cupos === 1 ? 'cupo' : 'cupos'}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
               <StatusBadge status={invitation.status} />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4 text-ink-muted/40 group-hover:text-terracotta group-hover:translate-x-0.5 transition-all duration-200"
+                aria-hidden
+              >
+                <path d="M9 6 L15 12 L9 18" />
+              </svg>
             </div>
           </div>
 
-          {/* ─── Primary meta row: cupos + opened/attention ─── */}
-          <div className="flex items-center gap-2 flex-wrap mt-3">
-            <span className="inline-flex items-center gap-1.5 bg-ivory-100 text-ink px-3 py-1.5 rounded-full text-sm font-semibold">
-              <UsersIcon className="w-4 h-4 text-ink-soft" />
-              {invitation.attending != null ? `${invitation.attending} / ${invitation.cupos}` : `${invitation.cupos} cupos`}
-            </span>
-            {invitation.firstOpenedAt ? (
-              <span
-                className="inline-flex items-center gap-1.5 bg-sage/15 text-sage-dark px-3 py-1.5 rounded-full text-sm font-semibold"
-                title={`Abierto el ${new Date(invitation.firstOpenedAt).toLocaleDateString('es-CO')}`}
-              >
-                <CheckIcon className="w-4 h-4" />
-                Abierto
-              </span>
-            ) : showAttentionBadge ? (
-              <span className="inline-flex items-center gap-1.5 bg-terracotta text-white px-3 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide shadow-soft">
-                <BellIcon className="w-4 h-4" />
-                No abrió
-              </span>
-            ) : null}
-          </div>
-
-          {/* ─── Secondary info: phone + notes ─── */}
-          {(invitation.phone || invitation.notes) && (
-            <div className="mt-3 space-y-1">
+          {/* ─── State + phone chips ─── */}
+          {(invitation.firstOpenedAt || showAttentionBadge || invitation.phone) && (
+            <div className="flex items-center gap-2 flex-wrap mt-3">
+              {invitation.firstOpenedAt ? (
+                <span
+                  className="badge bg-sage/15 text-sage-dark"
+                  title={`Abierto el ${new Date(invitation.firstOpenedAt).toLocaleDateString('es-CO')}`}
+                >
+                  <CheckIcon className="w-3.5 h-3.5" />
+                  Abierto
+                </span>
+              ) : showAttentionBadge ? (
+                <span className="badge bg-terracotta text-white uppercase tracking-wide">
+                  <BellIcon className="w-3.5 h-3.5" />
+                  No abrió
+                </span>
+              ) : null}
               {invitation.phone && (
-                <p className="text-sm text-ink-soft inline-flex items-center gap-1.5">
+                <span className="badge bg-ivory-100 text-ink-soft">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-ink-muted" aria-hidden>
                     <path d="M3 3 L6 3 L7.5 6 L6 7.5 C7 9 7.5 9.5 9 10.5 L10.5 9 L13.5 10.5 L13.5 13.5 C9 13.5 2.5 7 2.5 3 Z" />
                   </svg>
-                  <span className="font-medium tracking-wide">{invitation.phone}</span>
-                </p>
-              )}
-              {invitation.notes && (
-                <p className="text-xs text-ink-muted italic line-clamp-2">
-                  "{invitation.notes}"
-                </p>
+                  {invitation.phone}
+                </span>
               )}
             </div>
           )}
 
-          {/* ─── Tertiary: attendee + gift counts ─── */}
+          {/* ─── Notes ─── */}
+          {invitation.notes && (
+            <p className="text-xs text-ink-muted italic line-clamp-2 mt-3">
+              "{invitation.notes}"
+            </p>
+          )}
+
+          {/* ─── Footer: attendee + gift counts ─── */}
           {(attendeeCount > 0 || giftCount > 0) && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 pt-3 border-t border-ink/8 text-xs text-ink-muted">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-ink/8 text-xs text-ink-muted">
               {attendeeCount > 0 && (
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1.5">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5" aria-hidden>
                     <circle cx="6" cy="6" r="2.5" />
                     <circle cx="11" cy="6.5" r="2" />
@@ -555,7 +569,7 @@ function InvitationCard({
                 </span>
               )}
               {giftCount > 0 && (
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1.5">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5" aria-hidden>
                     <path d="M2 6 L14 6 L14 13 L2 13 Z" />
                     <path d="M2 6 L2 4 L14 4 L14 6" />

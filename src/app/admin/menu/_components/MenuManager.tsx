@@ -19,7 +19,7 @@ export default function MenuManager({
   items,
 }: {
   title: string;
-  type: 'MAIN_DISH' | 'DRINK';
+  type: 'MAIN_DISH' | 'SIDE' | 'DRINK';
   items: MenuItem[];
 }) {
   const router = useRouter();
@@ -71,6 +71,19 @@ export default function MenuManager({
         <ul className="divide-y divide-ink/10 border-t border-ink/10">
           {items.map((it, idx) => (
             <li key={it.id} className="p-4 flex items-start gap-3">
+              {/* Thumbnail */}
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-ivory-100 shrink-0 flex items-center justify-center">
+                {it.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.imageUrl} alt={it.name} loading="lazy" className="w-full h-full object-cover" />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6 text-ink/25" aria-hidden>
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <circle cx="8.5" cy="9" r="1.5" />
+                    <path d="M4 17 L9 12 L13 15 L16 12 L20 16" />
+                  </svg>
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <h3 className="font-medium">{it.name}</h3>
@@ -151,7 +164,7 @@ function MenuFormModal({
   item,
   onClose,
 }: {
-  type: 'MAIN_DISH' | 'DRINK';
+  type: 'MAIN_DISH' | 'SIDE' | 'DRINK';
   mode: 'add' | 'edit';
   item?: MenuItem;
   onClose: () => void;
@@ -162,7 +175,11 @@ function MenuFormModal({
 
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
+  const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '');
   const [active, setActive] = useState(item?.active ?? true);
+
+  const typeLabel =
+    type === 'MAIN_DISH' ? 'plato' : type === 'SIDE' ? 'acompañamiento' : 'bebida';
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,6 +190,7 @@ function MenuFormModal({
         type,
         name,
         description: description || null,
+        imageUrl: imageUrl.trim() || null,
         order: item?.order ?? 0,
         active,
       });
@@ -189,7 +207,7 @@ function MenuFormModal({
     <Modal onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <h2 className="display-xl text-2xl">
-          {mode === 'add' ? 'Nuevo' : 'Editar'} {type === 'MAIN_DISH' ? 'plato' : 'bebida'}
+          {mode === 'add' ? 'Nuevo' : 'Editar'} {typeLabel}
         </h2>
 
         <label className="block">
@@ -210,6 +228,32 @@ function MenuFormModal({
             rows={2}
             className="mella-input mt-1"
           />
+        </label>
+
+        {/* Photo — shown in the invitation menu. Local path (/menu/…) or URL. */}
+        <label className="block">
+          <span className="text-sm text-ink-soft">Foto (opcional)</span>
+          <div className="mt-1 flex items-start gap-3">
+            <div className="w-20 h-20 rounded-xl overflow-hidden bg-ivory-100 shrink-0 flex items-center justify-center border border-ink/10">
+              {imageUrl.trim() ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imageUrl.trim()} alt="Vista previa" className="w-full h-full object-cover" />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-7 h-7 text-ink/25" aria-hidden>
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <circle cx="8.5" cy="9" r="1.5" />
+                  <path d="M4 17 L9 12 L13 15 L16 12 L20 16" />
+                </svg>
+              )}
+            </div>
+            <input
+              type="text"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="/menu/plato.jpg  o  https://…"
+              className="mella-input flex-1 min-w-0"
+            />
+          </div>
         </label>
 
         <label className="flex items-center gap-2 text-sm">

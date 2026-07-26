@@ -17,6 +17,7 @@ import { Prisma } from '@prisma/client';
 import { confirmRsvp, releaseGift, reserveGift } from '@/actions/guest';
 import GuestCinematic from '@/components/guest/GuestCinematic';
 import BackgroundMusic from '@/components/guest/BackgroundMusic';
+import MenuShowcase from '@/components/guest/MenuShowcase';
 
 type AttendeeData = {
   id: string;
@@ -36,7 +37,7 @@ type InvitationData = {
   reservedGiftIds: string[];
 };
 
-type MenuItemData = { id: string; name: string; description: string | null };
+type MenuItemData = { id: string; name: string; description: string | null; imageUrl?: string | null };
 type GiftData = {
   id: string;
   name: string;
@@ -51,7 +52,7 @@ type Step = 'welcome' | 'declined' | 'food' | 'gifts';
 
 type Props = {
   invitation: InvitationData;
-  menu: { mainDishes: MenuItemData[]; drinks: MenuItemData[] };
+  menu: { mainDishes: MenuItemData[]; sides: MenuItemData[]; drinks: MenuItemData[] };
   gifts: GiftData[];
   weddingInfo: { date: string; time: string; venue: string; mapsUrl: string };
   isReadOnly: boolean;
@@ -202,6 +203,13 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
           )}
         </AnimatePresence>
       </section>
+
+      {/* Nuestro menú — visual showcase of the catering, shown to every guest. */}
+      <MenuShowcase
+        mains={menu.mainDishes}
+        sides={menu.sides}
+        drinks={menu.drinks}
+      />
 
       <AnimatePresence>
         {confirmingDecline && (
@@ -412,7 +420,7 @@ function FoodStep({
   pending,
 }: {
   invitation: InvitationData;
-  menu: { mainDishes: MenuItemData[]; drinks: MenuItemData[] };
+  menu: { mainDishes: MenuItemData[]; sides: MenuItemData[]; drinks: MenuItemData[] };
   isReadOnly: boolean;
   onSaved: () => void;
   onBack: () => void;
@@ -578,7 +586,7 @@ function AttendeeEditor({
 }: {
   index: number;
   attendee: AttendeeData;
-  menu: { mainDishes: MenuItemData[]; drinks: MenuItemData[] };
+  menu: { mainDishes: MenuItemData[]; sides: MenuItemData[]; drinks: MenuItemData[] };
   onChange: (patch: Partial<AttendeeData>) => void;
 }) {
   return (
