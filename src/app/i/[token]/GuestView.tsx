@@ -10,7 +10,7 @@
 // releaseGift). Manages its own step state but always reflects what's persisted
 // in the DB on initial render — so reloading keeps the guest on the right step.
 
-import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Prisma } from '@prisma/client';
@@ -52,7 +52,7 @@ type Props = {
   invitation: InvitationData;
   menu: { mainDishes: MenuItemData[]; drinks: MenuItemData[] };
   gifts: GiftData[];
-  weddingInfo: { date: string; time: string; venue: string };
+  weddingInfo: { date: string; time: string; venue: string; mapsUrl: string };
   isReadOnly: boolean;
 };
 
@@ -75,6 +75,40 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
     () => new Set(invitation.reservedGiftIds),
   );
 
+  // Decline is final now (the link closes), so an accidental "No" shouldn't
+  // lock the guest out — we confirm first.
+  const [confirmingDecline, setConfirmingDecline] = useState(false);
+
+  // "Sí" (from the attendance bar): jump to the details/food step and bring the
+  // RSVP section into view.
+  const handleAttend = () => {
+    setStep('food');
+    requestAnimationFrame(() =>
+      document.getElementById('rsvp-section')?.scrollIntoView({ behavior: 'smooth' }),
+    );
+  };
+
+  const doDecline = () =>
+    startTransition(async () => {
+      setError(null);
+      const result = await confirmRsvp({
+        token: invitation.token,
+        status: 'DECLINED',
+        attending: 0,
+        attendees: [],
+      });
+      if (!result.ok) {
+        setError(rsvpMessageFor(result.code));
+        return;
+      }
+      setConfirmingDecline(false);
+      setStep('declined');
+      requestAnimationFrame(() =>
+        document.getElementById('rsvp-section')?.scrollIntoView({ behavior: 'smooth' }),
+      );
+      router.refresh();
+    });
+
   const fade = {
     initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
@@ -90,7 +124,6 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
         guestName={invitation.guestName}
         cupos={invitation.cupos}
         weddingInfo={weddingInfo}
-        rsvpAnchorId="rsvp-section"
       />
 
       <section
@@ -106,11 +139,19 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
           </p>
         </div>
 
-        <ProgressDots
-          current={stepToProgress(step)}
-          total={3}
-          labels={['Asistencia', 'Comida', 'Regalo']}
-        />
+        {step !== 'declined' && (
+          <ProgressDots
+            current={stepToProgress(step)}
+            total={3}
+            labels={['Asistencia', 'Comida', 'Regalo']}
+          />
+        )}
+
+        {/* Event details (location) — visible once the guest is on the
+            confirmed path, so saying "Sí" reveals where & when + the gifts. */}
+        {(step === 'food' || step === 'gifts') && (
+          <EventDetails weddingInfo={weddingInfo} />
+        )}
 
         <AnimatePresence mode="wait">
           {step === 'welcome' && (
@@ -121,23 +162,7 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
                 previouslyConfirmed={invitation.status === 'CONFIRMED'}
                 previouslyDeclined={invitation.status === 'DECLINED'}
                 onAccept={() => setStep('food')}
-                onDecline={() =>
-                  startTransition(async () => {
-                    setError(null);
-                    const result = await confirmRsvp({
-                      token: invitation.token,
-                      status: 'DECLINED',
-                      attending: 0,
-                      attendees: [],
-                    });
-                    if (!result.ok) {
-                      setError(rsvpMessageFor(result.code));
-                      return;
-                    }
-                    setStep('declined');
-                    router.refresh();
-                  })
-                }
+                onDecline={() => setConfirmingDecline(true)}
                 pending={pending}
                 error={error}
               />
@@ -146,10 +171,7 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
 
           {step === 'declined' && (
             <motion.div key="declined" {...fade}>
-              <DeclinedStep
-                guestName={invitation.guestName}
-                onChangeMind={() => setStep('welcome')}
-              />
+              <DeclinedStep guestName={invitation.guestName} />
             </motion.div>
           )}
 
@@ -184,6 +206,27 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
           )}
         </AnimatePresence>
       </section>
+
+      {/* Attendance bar — rises from the bottom as the cinematic ends. Only
+          while the guest is still deciding (PENDING) and can respond. */}
+      {!isReadOnly && (
+        <AttendanceBar
+          status={invitation.status}
+          onAttend={handleAttend}
+          onDecline={() => setConfirmingDecline(true)}
+          targetId="rsvp-section"
+        />
+      )}
+
+      <AnimatePresence>
+        {confirmingDecline && (
+          <DeclineConfirmModal
+            pending={pending}
+            onCancel={() => setConfirmingDecline(false)}
+            onConfirm={doDecline}
+          />
+        )}
+      </AnimatePresence>
 
       <footer className="py-10 text-center text-ink-muted/70 text-xs">
         <p>Con todo nuestro cariño.</p>
@@ -355,28 +398,17 @@ function WelcomeStep({
 // Step 2a: Declined — thank you
 // -----------------------------------------------------------------------------
 
-function DeclinedStep({
-  guestName,
-  onChangeMind,
-}: {
-  guestName: string;
-  onChangeMind: () => void;
-}) {
+function DeclinedStep({ guestName }: { guestName: string }) {
   return (
-    <div className="text-center space-y-6">
+    <div className="text-center space-y-6 py-6">
       <p className="display-italic text-3xl sm:text-4xl text-ink">
         Gracias por avisarnos
       </p>
       <p className="text-ink-soft max-w-md mx-auto">
-        {guestName}, vamos a extrañarte, pero esperamos celebrarlo contigo en otra ocasión. 💛
+        {guestName.split(',')[0]}, vamos a extrañarte muchísimo. Gracias por
+        tomarte un momento para responder — significa mucho para nosotros. 💛
       </p>
-      <button
-        type="button"
-        onClick={onChangeMind}
-        className="cursor-pointer text-sm text-ink-muted underline underline-offset-2 hover:text-ink"
-      >
-        Cambié de opinión, sí voy a poder ir
-      </button>
+      <p className="smallcaps text-ink-muted/70">Esta invitación queda cerrada.</p>
     </div>
   );
 }
@@ -881,6 +913,236 @@ function ConfirmModal({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Event details (location) — shown once the guest is on the confirmed path.
+// -----------------------------------------------------------------------------
+
+function EventDetails({
+  weddingInfo,
+}: {
+  weddingInfo: { date: string; time: string; venue: string; mapsUrl: string };
+}) {
+  const { date, time, venue, mapsUrl } = weddingInfo;
+  if (!date && !time && !venue) return null;
+  return (
+    <div className="bg-white rounded-2xl shadow-soft p-5 sm:p-6 mb-6">
+      <p className="eyebrow text-terracotta mb-4">Dónde y cuándo</p>
+      <div className="space-y-3">
+        {date && <DetailRow icon={<CalendarIcon />} label="Fecha" value={date} />}
+        {time && <DetailRow icon={<ClockIcon />} label="Hora" value={time} />}
+        {venue && <DetailRow icon={<PinIcon />} label="Lugar" value={venue} />}
+      </div>
+      {mapsUrl && (
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="cursor-pointer mt-5 inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink-soft transition-colors"
+        >
+          <PinIcon className="w-4 h-4" />
+          Cómo llegar
+        </a>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="shrink-0 mt-0.5 w-8 h-8 rounded-full bg-ivory-100 text-terracotta-dark flex items-center justify-center">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="smallcaps text-ink-muted/70 text-[0.65rem]">{label}</p>
+        <p className="text-ink font-medium">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Attendance bar — rises from the bottom as the cinematic ends. Shown only while
+// the guest is still deciding (status PENDING).
+// -----------------------------------------------------------------------------
+
+function AttendanceBar({
+  status,
+  onAttend,
+  onDecline,
+  targetId,
+}: {
+  status: 'PENDING' | 'CONFIRMED' | 'DECLINED';
+  onAttend: () => void;
+  onDecline: () => void;
+  targetId: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'PENDING') return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const vh = window.innerHeight || 1;
+        // Visible as the RSVP section approaches the bottom of the viewport
+        // (cinematic ending) and hidden once it's scrolled up into reading
+        // position — so the bar never overlaps the form.
+        setVisible(rect.top < vh * 0.92 && rect.top > vh * 0.32);
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [status, targetId]);
+
+  if (status !== 'PENDING') return null;
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ y: '130%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '130%' }}
+          transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
+          className="fixed inset-x-0 bottom-0 z-40 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] pointer-events-none"
+        >
+          <div className="pointer-events-auto mx-auto max-w-md bg-ivory-50/95 backdrop-blur-xl rounded-3xl shadow-lift ring-1 ring-ink/10 p-4">
+            <p className="text-center font-display text-xl text-ink mb-1">
+              ¿Nos acompañarás?
+            </p>
+            <p className="text-center text-xs text-ink-muted mb-4">
+              Cuéntanos si podrás estar con nosotros.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={onAttend}
+                className="cursor-pointer px-4 py-3.5 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors"
+              >
+                Sí, ahí estaré
+              </button>
+              <button
+                type="button"
+                onClick={onDecline}
+                className="cursor-pointer px-4 py-3.5 rounded-full bg-white border border-ink/15 text-ink font-medium hover:bg-ivory-100 transition-colors"
+              >
+                No podré ir
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Decline confirmation — declining is final (the link closes), so we confirm.
+// -----------------------------------------------------------------------------
+
+function DeclineConfirmModal({
+  pending,
+  onConfirm,
+  onCancel,
+}: {
+  pending: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="modal-scroll-lock fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40"
+      onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
+    >
+      <motion.div
+        initial={{ y: 24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 24, opacity: 0 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        onClick={(e) => e.stopPropagation()}
+        className="modal-mobile-bottom w-full max-w-md bg-ivory-50 rounded-3xl p-6 shadow-lift"
+      >
+        <h3 className="display-xl text-2xl mb-2">¿Confirmas que no podrás venir?</h3>
+        <p className="text-ink-soft mb-6">
+          Vamos a extrañarte. Ten en cuenta que, al confirmar, esta invitación
+          quedará cerrada y no podrás cambiar tu respuesta.
+        </p>
+        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="cursor-pointer px-5 py-2.5 rounded-full border border-ink/15 hover:bg-ivory-100 transition-colors disabled:opacity-50"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="cursor-pointer px-5 py-2.5 rounded-full bg-ink text-white font-medium hover:bg-ink-soft transition-colors disabled:opacity-50"
+          >
+            {pending ? 'Enviando…' : 'Sí, no podré ir'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Icons for the event-details card.
+// -----------------------------------------------------------------------------
+
+function CalendarIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 9 L21 9 M8 3 L8 6 M16 3 L16 6" />
+    </svg>
+  );
+}
+function ClockIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7 L12 12 L15 14" />
+    </svg>
+  );
+}
+function PinIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M12 21 C 7 16 4 12 4 9 a8 8 0 0 1 16 0 c0 3 -3 7 -8 12 Z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </svg>
   );
 }
 

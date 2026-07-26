@@ -29,7 +29,6 @@ type Props = {
   guestName: string;
   cupos: number;
   weddingInfo: { date: string; time: string; venue: string };
-  rsvpAnchorId: string;
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -69,7 +68,6 @@ export default function GuestCinematic({
   guestName,
   cupos,
   weddingInfo,
-  rsvpAnchorId,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -100,11 +98,6 @@ export default function GuestCinematic({
     setBeat((prev) => (prev === next ? prev : next));
   });
 
-  // CTA appears near the end and stays. Kept scroll-linked — it's a persistent
-  // affordance, not a narrative beat.
-  const ctaOpacity = useTransform(scrollYProgress, [0.86, 0.93], [0, 1]);
-  const ctaY = useTransform(scrollYProgress, [0.86, 0.93], [24, 0]);
-
   // As the user nears the end, the cinematic fades to ivory to soften the join
   // into the RSVP section below.
   const cinematicFadeIvory = useTransform(
@@ -119,10 +112,6 @@ export default function GuestCinematic({
 
   // Scroll hint fades out once the user starts scrolling.
   const scrollHintOpacity = useTransform(scrollYProgress, [0, 0.03, 0.08], [1, 1, 0]);
-
-  const scrollToRsvp = () => {
-    document.getElementById(rsvpAnchorId)?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   return (
     <div ref={ref} className="relative min-h-[500svh]">
@@ -249,32 +238,6 @@ export default function GuestCinematic({
           )}
         </AnimatePresence>
       </div>
-
-      {/* CTA — appears near the end and stays. */}
-      <motion.div
-        style={{ opacity: ctaOpacity, y: ctaY }}
-        className="fixed inset-x-0 bottom-[14dvh] z-20 flex justify-center px-6 pointer-events-none"
-      >
-        <button
-          type="button"
-          onClick={scrollToRsvp}
-          className="pointer-events-auto inline-flex items-center gap-3 px-8 py-4 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors duration-300 shadow-lift"
-        >
-          Ver mi invitación
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-4 h-4"
-            aria-hidden
-          >
-            <path d="M12 5 L12 19 M5 12 L12 19 L19 12" />
-          </svg>
-        </button>
-      </motion.div>
 
       {/* Side progress rail — terracotta */}
       <motion.div

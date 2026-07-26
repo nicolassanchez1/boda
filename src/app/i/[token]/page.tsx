@@ -92,6 +92,14 @@ export default async function InvitationPage({ params }: { params: { token: stri
         date: process.env.NEXT_PUBLIC_WEDDING_DATE ?? '',
         time: process.env.NEXT_PUBLIC_WEDDING_TIME ?? '',
         venue: process.env.NEXT_PUBLIC_VENUE ?? '',
+        // Exact pin if provided, else a Google Maps search from the venue name.
+        mapsUrl:
+          process.env.NEXT_PUBLIC_MAPS_URL ??
+          (process.env.NEXT_PUBLIC_VENUE
+            ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                process.env.NEXT_PUBLIC_VENUE,
+              )}`
+            : ''),
       }}
       isReadOnly={isReadOnly}
     />
