@@ -64,12 +64,7 @@ export default function CateringShareButton({
   };
 
   return (
-    <button
-      type="button"
-      onClick={copy}
-      disabled={pending}
-      className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink-soft transition-colors disabled:opacity-50"
-    >
+    <button type="button" onClick={copy} disabled={pending} className="btn btn-ink">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
         <rect x="9" y="9" width="11" height="11" rx="2" />
         <path d="M5 15 L5 5 L15 5" />

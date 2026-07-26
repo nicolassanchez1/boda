@@ -176,11 +176,7 @@ export default function InvitationsList({
             <p className="text-sm text-ink-muted mb-5">
               Ninguna invitación coincide con los filtros activos.
             </p>
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full border border-ink/15 hover:bg-ivory-100 transition-colors text-sm"
-            >
+            <button type="button" onClick={handleClearFilters} className="btn btn-secondary btn-sm">
               Limpiar filtros
             </button>
           </div>

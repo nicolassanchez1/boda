@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { bulkCreateInvitations } from '@/actions/admin';
+import { buildInvitationLink } from '@/lib/format';
 
 type Result = {
   created: { token: string; guestName: string; cupos: number }[];
@@ -44,11 +45,7 @@ export default function BulkCreateForm() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="px-4 py-2 rounded-full bg-white border border-ink/15 text-sm hover:bg-ivory-100"
-      >
+      <button type="button" onClick={() => setOpen(true)} className="btn btn-secondary">
         Crear varias
       </button>
 
@@ -67,27 +64,18 @@ export default function BulkCreateForm() {
                   value={lines}
                   onChange={(e) => setLines(e.target.value)}
                   rows={8}
-                  className="w-full rounded-xl border border-ink/15 px-4 py-3 font-mono text-sm"
+                  className="mella-input font-mono resize-none"
                 />
                 {error && (
                   <p className="text-sm text-terracotta-dark" role="alert">
                     {error}
                   </p>
                 )}
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={close}
-                    disabled={pending}
-                    className="px-4 py-2 rounded-full border border-ink/15"
-                  >
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+                  <button type="button" onClick={close} disabled={pending} className="btn btn-secondary">
                     Cancelar
                   </button>
-                  <button
-                    type="submit"
-                    disabled={pending}
-                    className="px-4 py-2 rounded-full bg-terracotta text-white disabled:opacity-50"
-                  >
+                  <button type="submit" disabled={pending} className="btn btn-primary">
                     {pending ? 'Creando…' : 'Crear todas'}
                   </button>
                 </div>
@@ -120,7 +108,7 @@ function BulkResult({ result, onClose }: { result: Result; onClose: () => void }
                   {c.guestName} · {c.cupos} {c.cupos === 1 ? 'cupo' : 'cupos'}
                 </span>
                 <a
-                  href={`${base}/i/${c.token}`}
+                  href={buildInvitationLink(base, c.token, c.guestName)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-terracotta-dark underline shrink-0"
@@ -145,11 +133,7 @@ function BulkResult({ result, onClose }: { result: Result; onClose: () => void }
         </div>
       )}
       <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 rounded-full bg-terracotta text-white"
-        >
+        <button type="button" onClick={onClose} className="btn btn-primary">
           Cerrar
         </button>
       </div>

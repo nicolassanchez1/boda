@@ -54,14 +54,13 @@ export default function MenuManager({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-soft overflow-hidden">
-      <div className="p-5 flex items-center justify-between">
+    <div className="card overflow-hidden">
+      <div className="p-5 flex items-center justify-between gap-3">
         <h2 className="display-xl text-2xl">{title}</h2>
-        <button
-          type="button"
-          onClick={() => setEditing({ mode: 'add' })}
-          className="px-4 py-2 rounded-full bg-terracotta text-white text-sm font-medium hover:bg-terracotta-dark"
-        >
+        <button type="button" onClick={() => setEditing({ mode: 'add' })} className="btn btn-primary btn-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5" aria-hidden>
+            <path d="M12 5 L12 19 M5 12 L19 12" />
+          </svg>
           Agregar
         </button>
       </div>
@@ -85,41 +84,47 @@ export default function MenuManager({
                   <p className="text-sm text-ink-muted mt-1">{it.description}</p>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-1.5 text-xs shrink-0">
+              <div className="flex flex-col items-end gap-2 shrink-0">
                 <div className="flex gap-1">
                   <button
                     type="button"
                     onClick={() => move(it.id, -1)}
                     disabled={idx === 0 || pending}
-                    className="w-8 h-8 rounded-full border border-ink/15 hover:bg-ivory-100 disabled:opacity-30"
+                    className="cursor-pointer w-9 h-9 rounded-full border border-ink/15 text-ink-soft hover:bg-ivory-100 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                     aria-label="Subir"
                   >
-                    ↑
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+                      <path d="M6 15 L12 9 L18 15" />
+                    </svg>
                   </button>
                   <button
                     type="button"
                     onClick={() => move(it.id, 1)}
                     disabled={idx === items.length - 1 || pending}
-                    className="w-8 h-8 rounded-full border border-ink/15 hover:bg-ivory-100 disabled:opacity-30"
+                    className="cursor-pointer w-9 h-9 rounded-full border border-ink/15 text-ink-soft hover:bg-ivory-100 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                     aria-label="Bajar"
                   >
-                    ↓
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+                      <path d="M6 9 L12 15 L18 9" />
+                    </svg>
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEditing({ mode: 'edit', item: it })}
-                  className="px-3 py-1.5 rounded-full text-ink-muted underline underline-offset-2"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => remove(it)}
-                  className="px-3 py-1.5 rounded-full text-terracotta-dark hover:bg-terracotta/10"
-                >
-                  Eliminar
-                </button>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditing({ mode: 'edit', item: it })}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(it)}
+                    className="btn btn-danger btn-sm"
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </div>
             </li>
           ))}
@@ -193,7 +198,7 @@ function MenuFormModal({
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+            className="mella-input mt-1"
           />
         </label>
 
@@ -203,7 +208,7 @@ function MenuFormModal({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+            className="mella-input mt-1"
           />
         </label>
 
@@ -223,19 +228,11 @@ function MenuFormModal({
           </p>
         )}
 
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-full border border-ink/15"
-          >
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn btn-secondary">
             Cancelar
           </button>
-          <button
-            type="submit"
-            disabled={pending}
-            className="px-4 py-2 rounded-full bg-terracotta text-white disabled:opacity-50"
-          >
+          <button type="submit" disabled={pending} className="btn btn-primary">
             {pending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { StatCard, StatGrid } from '@/components/admin/Stat';
 import CateringShareButton from './_components/CateringShareButton';
 
 export const dynamic = 'force-dynamic';
@@ -86,11 +87,34 @@ export default async function ResumenPage() {
       </header>
 
       {/* Hero stats — the at-a-glance view */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Confirmados" value={confirmedCount} sub={`${confirmedPeople} ${confirmedPeople === 1 ? 'persona' : 'personas'}`} accent />
-        <Stat label="Tasa de respuesta" value={`${responseRate}%`} sub={`${openedCount} de ${totalInvitations} abrieron el enlace`} />
-        <Stat label="Pendientes" value={pendingCount} sub={pendingCount > 0 ? 'por confirmar' : 'todos respondieron'} muted={pendingCount === 0} />
-        <Stat label="Declinaron" value={declinedCount} muted={declinedCount === 0} />
+      <section aria-label="Resumen general">
+        <StatGrid>
+          <StatCard
+            label="Confirmados"
+            value={confirmedCount}
+            sub={`${confirmedPeople} ${confirmedPeople === 1 ? 'persona' : 'personas'}`}
+            filled
+          />
+          <StatCard
+            label="Tasa de respuesta"
+            value={`${responseRate}%`}
+            sub={`${openedCount} de ${totalInvitations} abrieron`}
+            accent="gold"
+          />
+          <StatCard
+            label="Pendientes"
+            value={pendingCount}
+            sub={pendingCount > 0 ? 'por confirmar' : 'todos respondieron'}
+            accent="terracotta"
+            muted={pendingCount === 0}
+          />
+          <StatCard
+            label="Declinaron"
+            value={declinedCount}
+            accent="ink"
+            muted={declinedCount === 0}
+          />
+        </StatGrid>
       </section>
 
       {/* Catering section — the critical part */}
@@ -215,50 +239,6 @@ export default async function ResumenPage() {
 // -----------------------------------------------------------------------------
 // Components
 // -----------------------------------------------------------------------------
-
-function Stat({
-  label,
-  value,
-  sub,
-  accent,
-  muted,
-}: {
-  label: string;
-  value: number | string;
-  sub?: string;
-  accent?: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <div
-      className={[
-        'rounded-2xl p-5 shadow-soft transition-shadow hover:shadow-lift',
-        accent
-          ? 'bg-terracotta text-white'
-          : muted
-          ? 'bg-white opacity-60'
-          : 'bg-white',
-      ].join(' ')}
-    >
-      <div
-        className={[
-          'text-[0.65rem] tracking-[0.25em] uppercase font-medium',
-          accent ? 'opacity-80' : 'text-ink-muted',
-        ].join(' ')}
-      >
-        {label}
-      </div>
-      <div className="display-xl text-4xl mt-1">{value}</div>
-      {sub && (
-        <div
-          className={['text-xs mt-1', accent ? 'opacity-80' : 'text-ink-muted'].join(' ')}
-        >
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function SectionHeading({
   eyebrow,

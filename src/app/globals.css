@@ -127,6 +127,74 @@ body > * {
   .mella-input::placeholder {
     @apply text-ink-muted;
   }
+
+  /* ---------------------------------------------------------------------------
+   * Buttons — ONE system for the whole app. Compose a variant with the base:
+   *   <button class="btn btn-primary">   <a class="btn btn-secondary btn-sm">
+   * ------------------------------------------------------------------------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium leading-none text-sm;
+    @apply px-5 py-3 min-h-[44px] cursor-pointer select-none;
+    @apply transition-[background-color,color,border-color,box-shadow,transform] duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/45 focus-visible:ring-offset-2 focus-visible:ring-offset-ivory-50;
+    @apply disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none;
+  }
+  .btn:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  /* Primary action — terracotta. */
+  .btn-primary {
+    @apply bg-terracotta text-white shadow-soft hover:bg-terracotta-dark hover:shadow-lift;
+  }
+  /* Strong neutral — ink fill (e.g. copy, confirm-neutral). */
+  .btn-ink {
+    @apply bg-ink text-ivory-50 hover:bg-ink-soft;
+  }
+  /* Secondary — quiet outline on white. */
+  .btn-secondary {
+    @apply bg-white text-ink border border-ink/15 hover:bg-ivory-100 hover:border-ink/25;
+  }
+  /* Ghost — text-only until hovered. */
+  .btn-ghost {
+    @apply bg-transparent text-ink-soft hover:bg-ivory-100 hover:text-ink;
+  }
+  /* Destructive — restrained (terracotta on tint), not a loud red. */
+  .btn-danger {
+    @apply bg-terracotta/10 text-terracotta-dark hover:bg-terracotta/15;
+  }
+  .btn-sm {
+    @apply px-3.5 py-2 text-xs gap-1.5;
+  }
+  .btn-lg {
+    @apply px-6 py-4 text-base;
+  }
+  .btn-block {
+    @apply w-full;
+  }
+  /* Icon-only round button (44px hit area). */
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-11 h-11 rounded-full cursor-pointer text-ink-soft;
+    @apply transition-colors duration-200 hover:bg-ivory-100 hover:text-ink;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/45;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * Cards — consistent surface. `card` for the surface, `card-hover` to lift.
+   * ------------------------------------------------------------------------- */
+  .card {
+    @apply bg-white rounded-2xl shadow-soft;
+  }
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-lift;
+  }
+  .card-pad {
+    @apply p-5 sm:p-6;
+  }
+
+  /* Small status pill. Pair with a color utility (e.g. bg-sage/15 text-sage-dark). */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
   /* Cinematic overlay text — legible over the video frames without a solid card
      behind it. A soft ivory glow hugs each glyph so the frame stays visible
      around the text. Kept to a small blur radius on purpose: a large blurred

@@ -58,11 +58,10 @@ export default function CreateInvitationForm() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="px-4 py-2 rounded-full bg-terracotta text-white text-sm font-medium hover:bg-terracotta-dark"
-      >
+      <button type="button" onClick={() => setOpen(true)} className="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4" aria-hidden>
+          <path d="M12 5 L12 19 M5 12 L19 12" />
+        </svg>
         Nueva invitación
       </button>
 
@@ -82,7 +81,7 @@ export default function CreateInvitationForm() {
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
                     placeholder="Carlos e hijos"
-                    className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+                    className="mella-input mt-1"
                   />
                 </label>
 
@@ -95,7 +94,7 @@ export default function CreateInvitationForm() {
                     max={99}
                     value={cupos}
                     onChange={(e) => setCupos(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+                    className="mella-input mt-1"
                   />
                 </label>
 
@@ -105,7 +104,7 @@ export default function CreateInvitationForm() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+57 300 000 0000"
-                    className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+                    className="mella-input mt-1"
                   />
                 </label>
 
@@ -115,7 +114,7 @@ export default function CreateInvitationForm() {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
-                    className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+                    className="mella-input mt-1"
                   />
                 </label>
 
@@ -125,21 +124,12 @@ export default function CreateInvitationForm() {
                   </p>
                 )}
 
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={close}
-                    disabled={pending}
-                    className="px-4 py-2 rounded-full border border-ink/15"
-                  >
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+                  <button type="button" onClick={close} disabled={pending} className="btn btn-secondary">
                     Cancelar
                   </button>
-                  <button
-                    type="submit"
-                    disabled={pending}
-                    className="px-4 py-2 rounded-full bg-terracotta text-white disabled:opacity-50"
-                  >
-                    {pending ? 'Creando…' : 'Crear'}
+                  <button type="submit" disabled={pending} className="btn btn-primary">
+                    {pending ? 'Creando…' : 'Crear invitación'}
                   </button>
                 </div>
               </form>
@@ -166,22 +156,14 @@ function CreatedSuccess({ link, onClose }: { link: string; onClose: () => void }
     <div className="space-y-4">
       <h2 className="display-xl text-2xl">¡Listo!</h2>
       <p className="text-ink-soft">Comparte este enlace con el invitado:</p>
-      <div className="flex items-center gap-2 bg-ivory-100 rounded-xl p-3">
-        <code className="text-xs flex-1 break-all">{link}</code>
-        <button
-          type="button"
-          onClick={copy}
-          className="text-xs px-3 py-1.5 rounded-full bg-ink text-white"
-        >
-          {copied ? 'Copiado' : 'Copiar'}
+      <div className="flex items-center gap-2 bg-ivory-100 rounded-xl p-2 pl-3">
+        <code className="text-xs flex-1 break-all text-ink-soft">{link}</code>
+        <button type="button" onClick={copy} className="btn btn-ink btn-sm shrink-0">
+          {copied ? '¡Copiado!' : 'Copiar'}
         </button>
       </div>
       <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 rounded-full bg-terracotta text-white"
-        >
+        <button type="button" onClick={onClose} className="btn btn-primary">
           Cerrar
         </button>
       </div>

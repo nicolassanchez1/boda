@@ -21,7 +21,7 @@ export default function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={pending}
-      className="group inline-flex items-center gap-2 smallcaps text-ink-muted hover:text-terracotta-dark transition-colors disabled:opacity-50"
+      className="group inline-flex items-center gap-2 smallcaps text-ink-muted hover:text-terracotta-dark transition-colors disabled:opacity-50 cursor-pointer"
     >
       <span>{pending ? 'Saliendo…' : 'Cerrar sesión'}</span>
       <svg

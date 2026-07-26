@@ -36,7 +36,7 @@ export function AddButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-terracotta text-white text-sm font-medium hover:bg-terracotta-dark transition-colors duration-200"
+        className="btn btn-primary"
       >
         <PlusIcon className="w-4 h-4" />
         Agregar regalo
