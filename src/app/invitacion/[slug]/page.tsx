@@ -4,13 +4,15 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { isPastDeadline } from '@/lib/rsvp';
+import { extractInvitationToken } from '@/lib/format';
 import GuestView from './GuestView';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function InvitationPage({ params }: { params: { token: string } }) {
-  const { token } = params;
+// The URL slug is `nombre-del-invitado-TOKEN`; only the token authenticates.
+export default async function InvitationPage({ params }: { params: { slug: string } }) {
+  const token = extractInvitationToken(params.slug);
 
   const invitation = await prisma.invitation.findUnique({
     where: { token },

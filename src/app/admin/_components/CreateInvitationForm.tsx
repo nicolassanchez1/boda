@@ -50,7 +50,7 @@ export default function CreateInvitationForm() {
       const data = result.data as { token: string } | undefined;
       if (data?.token) {
         const base = process.env.NEXT_PUBLIC_BASE_URL ?? '';
-        setCreatedLink(buildInvitationLink(base, data.token));
+        setCreatedLink(buildInvitationLink(base, data.token, guestName));
       }
       router.refresh();
     });

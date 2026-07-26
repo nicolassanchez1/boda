@@ -77,7 +77,7 @@ export async function confirmRsvp(rawInput: unknown): Promise<ActionResult> {
     return { ok: false, code: 'ERROR' };
   }
 
-  revalidatePath(`/i/${input.token}`);
+  revalidatePath('/invitacion/[slug]', 'page');
   return { ok: true };
 }
 
@@ -103,11 +103,11 @@ export async function reserveGift(rawInput: unknown): Promise<ActionResult> {
   });
 
   if (result.count === 0) {
-    revalidatePath(`/i/${input.token}`);
+    revalidatePath('/invitacion/[slug]', 'page');
     return { ok: false, code: 'CONFLICT' };
   }
 
-  revalidatePath(`/i/${input.token}`);
+  revalidatePath('/invitacion/[slug]', 'page');
   return { ok: true };
 }
 
@@ -134,6 +134,6 @@ export async function releaseGift(rawInput: unknown): Promise<ActionResult> {
 
   if (result.count === 0) return { ok: false, code: 'CONFLICT' };
 
-  revalidatePath(`/i/${input.token}`);
+  revalidatePath('/invitacion/[slug]', 'page');
   return { ok: true };
 }

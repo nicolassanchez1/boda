@@ -425,7 +425,7 @@ function InvitationCard({
   const [pending, startTransition] = useTransition();
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
-  const link = buildInvitationLink(baseUrl, invitation.token);
+  const link = buildInvitationLink(baseUrl, invitation.token, invitation.guestName);
   const whatsappMessage = buildWhatsappMessage(invitation.guestName, link);
   const whatsappUrl = buildWhatsAppUrl(invitation.phone, whatsappMessage);
 
