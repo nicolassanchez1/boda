@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   motion,
   useScroll,
@@ -13,7 +13,7 @@ type Props = {
   framePath?: (i: number) => string;
   showFrameCounter?: boolean;
   // 'cover' fills the stage (crops the overflow) — right for footage whose
-  // aspect ratio matches the viewport. 'contain' letterboxes the whole frame.
+  // aspect ratio matches the viewport. 'contain' fits the whole frame.
   fit?: 'cover' | 'contain';
   // Optional eyebrow shown in the loader. Omit for none.
   loaderLabel?: string;
@@ -28,8 +28,11 @@ export default function MotoScroll({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Sliding window of decoded frames. We never hold more than BUFFER*2 in
-  // memory at once — Safari iOS will OOM-kill the tab if we hold all 118.
+  // We hold the whole sequence for the entire scroll. The clip is short and the
+  // JPGs are small (~85KB), so there's no need to evict — and evicting then
+  // reloading frames was exactly what made the video flash/disappear while
+  // scrolling. We don't force-decode every frame; drawImage decodes on demand
+  // and the browser manages its own decoded-bitmap cache.
   const imagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
   const rafRef = useRef<number | null>(null);
 
@@ -37,103 +40,64 @@ export default function MotoScroll({
   const [isReady, setIsReady] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(0);
 
-  // Detect low-memory devices — buffer shrinks further on iPhone < 4GB RAM.
-  const isLowMem = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    // deviceMemory is in GB. Safari may report undefined → assume low-mem to
-    // be safe.
-    const dm = (navigator as { deviceMemory?: number }).deviceMemory;
-    if (typeof dm === 'number') return dm < 4;
-    // userAgent sniff for older iPhones that don't expose deviceMemory
-    return /iPhone|iPad/.test(navigator.userAgent);
-  }, []);
-
-  // Sliding window size: low-mem devices keep only ±BUFFER frames around
-  // the current one.
-  const BUFFER = isLowMem ? 6 : 12;
-
-  // ---- 1. Seed: load the first BUFFER*2 frames so the user can scroll a bit
-  //         before the loader kicks in. The rest is loaded lazily by the
-  //         scroll handler. ----
+  // ---- 1. Load the whole sequence up front, in order, so the first frames
+  //         arrive first and we can reveal without waiting for all 96. ----
   useEffect(() => {
-    const seed = Math.min(BUFFER * 2, totalFrames);
-    let count = 0;
-    for (let i = 1; i <= seed; i++) {
-      loadFrame(i, () => {
-        count++;
-        setLoadedCount(count);
-        if (count === seed) setIsReady(true);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalFrames, framePath, BUFFER]);
+    imagesRef.current = new Map();
+    setLoadedCount(0);
+    setIsReady(false);
 
-  // Lazily load frame `n` if not already in the buffer.
-  const loadFrame = (n: number, onReady?: () => void) => {
-    if (n < 1 || n > totalFrames) return;
-    if (imagesRef.current.has(n)) {
-      onReady?.();
-      return;
-    }
-    const img = new Image();
-    img.decoding = 'async';
-    img.src = framePath(n);
-    const done = () => {
-      imagesRef.current.set(n, img);
-      onReady?.();
+    let count = 0;
+    let cancelled = false;
+    const readyAt = Math.min(12, totalFrames);
+
+    const advance = () => {
+      if (cancelled) return;
+      count++;
+      setLoadedCount(count);
+      if (count >= readyAt) setIsReady(true);
     };
-    if (img.complete) {
-      done();
-    } else {
+
+    const load = (n: number) => {
+      const img = new Image();
+      img.decoding = 'async';
       img.onload = () => {
-        try {
-          // Force the bitmap into a GPU-decoded state before drawImage.
-          // Cuts the visible "flash" on first scrub.
-          if ('decode' in img) img.decode().catch(() => {});
-        } catch {
-          /* decode() can reject on bad frames; fall through */
-        }
-        done();
+        if (cancelled) return;
+        imagesRef.current.set(n, img);
+        advance();
       };
       img.onerror = () => {
-        // Don't throw — a single missing frame shouldn't crash the page.
-        // Draw loop will see the gap and skip it.
+        // A single missing frame shouldn't stall the loader — just advance.
         // eslint-disable-next-line no-console
         console.warn(`[MotoScroll] failed: ${img.src}`);
-        done();
+        advance();
       };
-    }
-  };
-
-  // Drop frames outside ±BUFFER around n. Releasing the Image src hints
-  // the browser to release the decoded bitmap so GC can reclaim.
-  const evictFar = (n: number) => {
-    const min = Math.max(1, n - BUFFER);
-    const max = Math.min(totalFrames, n + BUFFER);
-    for (const key of Array.from(imagesRef.current.keys())) {
-      if (key < min || key > max) {
-        const img = imagesRef.current.get(key);
-        if (img) img.src = '';
-        imagesRef.current.delete(key);
+      img.src = framePath(n);
+      if (img.complete && img.naturalWidth) {
+        imagesRef.current.set(n, img);
+        advance();
       }
-    }
-  };
+    };
 
-  // ---- 2. Canvas sizing + high-quality draw helper ----
-  const drawRef = useRef<(idx: number, img?: HTMLImageElement) => void>(
-    () => {},
-  );
+    for (let i = 1; i <= totalFrames; i++) load(i);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [totalFrames, framePath]);
+
+  // ---- 2. Canvas sizing + draw helper ----
+  const drawRef = useRef<(idx: number) => void>(() => {});
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    // alpha:true → unpainted areas are transparent and reveal the ivory stage
+    // behind the canvas, instead of a black backdrop.
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    // Cap at 3 to keep phones with 3x DPR responsive without going absurd.
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-
-    // Enable high-quality upscaling — critical for low-res source frames.
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
@@ -146,21 +110,31 @@ export default function MotoScroll({
       ctx.imageSmoothingQuality = 'high';
     };
 
-    const draw = (idx: number, img?: HTMLImageElement) => {
+    // Return the requested frame, or the nearest already-loaded one, so the
+    // canvas is NEVER left empty mid-scroll while a frame is still loading.
+    const pickFrame = (idx: number): HTMLImageElement | null => {
+      const exact = imagesRef.current.get(idx + 1);
+      if (exact && exact.naturalWidth) return exact;
+      for (let off = 1; off < totalFrames; off++) {
+        const lo = imagesRef.current.get(idx + 1 - off);
+        if (lo && lo.naturalWidth) return lo;
+        const hi = imagesRef.current.get(idx + 1 + off);
+        if (hi && hi.naturalWidth) return hi;
+      }
+      return null;
+    };
+
+    const draw = (idx: number) => {
       const rect = canvas.getBoundingClientRect();
       const cw = rect.width;
       const ch = rect.height;
 
-      // Black backdrop always.
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, cw, ch);
+      // Clear to transparent — the ivory stage shows through any margin/gap.
+      ctx.clearRect(0, 0, cw, ch);
 
-      // Look up the image in the sliding window if not passed in.
-      const frame = img ?? imagesRef.current.get(idx + 1);
-      if (!frame || !frame.naturalWidth) return;
+      const frame = pickFrame(idx);
+      if (!frame) return; // nothing loaded yet (the loader is covering this)
 
-      // Preserve aspect, center. 'cover' fills the stage (crops overflow);
-      // 'contain' fits the whole frame (letterbox).
       const scale =
         fit === 'cover'
           ? Math.max(cw / frame.naturalWidth, ch / frame.naturalHeight)
@@ -184,10 +158,13 @@ export default function MotoScroll({
     window.addEventListener('resize', resize, { passive: true });
     drawRef.current = draw;
 
-    if (isReady) draw(0);
+    if (isReady) draw(currentFrame);
 
     return () => window.removeEventListener('resize', resize);
-  }, [isReady, fit]);
+    // currentFrame is intentionally omitted — the scroll handler drives redraws;
+    // this effect only needs to (re)initialise on ready / fit / count changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, fit, totalFrames]);
 
   // ---- 3. Scroll → frame index, throttled to one paint per animation frame ----
   const { scrollYProgress } = useScroll({
@@ -202,26 +179,18 @@ export default function MotoScroll({
     const idx = Math.max(0, Math.min(totalFrames - 1, Math.round(latest)));
     setCurrentFrame(idx);
 
-    // Pre-fetch the surrounding window, evict the far ones. This keeps the
-    // buffer small even though the user can scroll the entire 500vh range.
-    for (let off = -BUFFER; off <= BUFFER; off++) {
-      loadFrame(idx + 1 + off);
-    }
-    evictFar(idx + 1);
-
     // Coalesce multiple motion-value updates into one paint.
     if (rafRef.current != null) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
-      const img = imagesRef.current.get(idx + 1);
-      drawRef.current(idx, img);
+      drawRef.current(idx);
     });
   });
 
   return (
-    <div ref={containerRef} className="relative h-[500svh] bg-black">
-      {/* Sticky stage */}
-      <div className="sticky top-0 h-[100svh] w-full overflow-hidden">
+    <div ref={containerRef} className="relative h-[500svh] bg-ivory-50">
+      {/* Sticky stage — ivory ground so any margin/gap stays on-palette. */}
+      <div className="sticky top-0 h-[100svh] w-full overflow-hidden bg-ivory-50">
         <canvas
           ref={canvasRef}
           className={`h-full w-full transition-opacity duration-700 ${
@@ -230,21 +199,16 @@ export default function MotoScroll({
           style={{ imageRendering: 'auto' }}
         />
 
-        {/* Cinematic letterbox bars — fixed-height, gold accent on the bottom one. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[8svh] bg-black" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[10svh] bg-black" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-[10svh] h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-
-        {/* Loader */}
+        {/* Loader — warm ivory ground, ink text. */}
         {!isReady && (
-          <div className="absolute inset-0 flex items-center justify-center text-white">
+          <div className="absolute inset-0 flex items-center justify-center bg-ivory-50 text-ink">
             <div className="text-center max-w-xs px-6">
               {loaderLabel && (
                 <p className="eyebrow text-terracotta mb-6">{loaderLabel}</p>
               )}
-              <div className="w-12 h-12 mx-auto mb-6 border-2 border-white/20 border-t-terracotta rounded-full animate-spin" />
+              <div className="w-12 h-12 mx-auto mb-6 border-2 border-ink/15 border-t-terracotta rounded-full animate-spin" />
               {/* Progress bar */}
-              <div className="relative h-px w-full bg-white/10 mb-3 overflow-hidden">
+              <div className="relative h-px w-full bg-ink/10 mb-3 overflow-hidden">
                 <motion.div
                   className="absolute inset-y-0 left-0 bg-terracotta"
                   initial={{ width: 0 }}
@@ -252,8 +216,8 @@ export default function MotoScroll({
                   transition={{ duration: 0.2 }}
                 />
               </div>
-              <p className="text-[0.65rem] tracking-[0.3em] uppercase text-white/50">
-                <span className="text-white">{String(loadedCount).padStart(3, '0')}</span>
+              <p className="text-[0.65rem] tracking-[0.3em] uppercase text-ink-muted">
+                <span className="text-ink">{String(loadedCount).padStart(3, '0')}</span>
                 {' / '}
                 {String(totalFrames).padStart(3, '0')}
               </p>
@@ -261,17 +225,16 @@ export default function MotoScroll({
           </div>
         )}
 
-        {/* Frame counter — bottom-left, in the letterbox. Opt-in for non-demo uses
-            (e.g. guest cinematic) since "0/117 frame" is ugly in production. */}
+        {/* Frame counter — opt-in (off for the guest cinematic). */}
         {isReady && showFrameCounter && (
-          <div className="pointer-events-none absolute bottom-[2svh] left-6 sm:left-10 text-white/70">
+          <div className="pointer-events-none absolute bottom-[2svh] left-6 sm:left-10 text-ink/60">
             <p className="text-[0.6rem] tracking-[0.35em] uppercase">Frame</p>
             <p className="font-display text-2xl leading-none mt-1">
               <span className="text-terracotta">
                 {String(currentFrame + 1).padStart(3, '0')}
               </span>
-              <span className="text-white/40 mx-2">/</span>
-              <span className="text-white/40">{String(totalFrames).padStart(3, '0')}</span>
+              <span className="text-ink/30 mx-2">/</span>
+              <span className="text-ink/30">{String(totalFrames).padStart(3, '0')}</span>
             </p>
           </div>
         )}

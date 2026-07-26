@@ -101,9 +101,9 @@ export default function GuestCinematic({
 
   return (
     <div ref={ref} className="relative min-h-[500svh]">
-      {/* Black stage behind the sticky canvas — keeps the frame edges from
-          being jitter-edged by the surrounding ivory page. */}
-      <div className="absolute inset-0 bg-black" aria-hidden />
+      {/* Ivory stage behind the sticky canvas — keeps the cinematic on-palette
+          (the canvas is transparent where a frame doesn't reach). */}
+      <div className="absolute inset-0 bg-ivory-50" aria-hidden />
 
       {/* Scroll-scrubbed wedding footage. We pick the frame set that matches
           the viewport orientation (desktop 16:9 / mobile 9:16) and remount on
