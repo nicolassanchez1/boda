@@ -3,17 +3,15 @@
 // Cinematic intro for the guest invitation.
 //
 // Scroll-scrubbed 96-frame sequence (desktop 16:9 / mobile 9:16) behind three
-// narrative "beats" plus a CTA:
+// narrative "beats":
 //   Beat 0  (0–30%)   "Nos vamos a casar"
 //   Beat 1  (30–60%)  "Y no queremos celebrarlo sin ti"
 //   Beat 2  (60–100%) <guest name> + wedding date / venue
-//   CTA     (88–100%) → scroll into the RSVP section below
 //
-// Each beat is a proper entrance animation (NOT a raw scroll-linked fade): the
-// scroll position selects the active beat, and framer-motion plays a staggered
-// reveal where the ivory card settles FIRST and the text rises in AFTER. That
-// fixes the old bug where the text was legible before its background — over the
-// dark footage the floating letters read as broken.
+// The scroll position selects the active beat; each beat's text fades/rises in
+// as a smooth cross-fade (no solid card — the text sits directly over the frame
+// with a soft ivory glow for legibility). The "¿Nos acompañarás?" prompt lives
+// in the attendance bar below (GuestView), not here.
 
 import { useRef, useState, useEffect } from 'react';
 import {
@@ -33,35 +31,28 @@ type Props = {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-// Parent (the card). Fades + scales in as a surface. `delayChildren` holds the
-// text back until the ivory ground is established; `staggerChildren` cascades
-// the lines. On exit the whole card lifts and fades as one.
+// The text block for a beat. Transparent (no card), so the entrance stays
+// simple: a smooth fade + gentle rise — no scale, no child delay, no backdrop
+// blur. Removing the old "settle then pop" gap is what stops the transition
+// from looking cut/janky on mobile.
 const cardVariants = {
-  hidden: { opacity: 0, scale: 0.94, y: 28 },
+  hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
-    scale: 1,
     y: 0,
-    transition: {
-      duration: 0.7,
-      ease: EASE,
-      delayChildren: 0.3,
-      staggerChildren: 0.1,
-    },
+    transition: { duration: 0.6, ease: EASE, staggerChildren: 0.05 },
   },
   exit: {
     opacity: 0,
-    scale: 0.98,
-    y: -18,
-    transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] as const },
+    y: -14,
+    transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] as const },
   },
 };
 
-// Each text line rises into place. Inherits orchestration (delay/stagger) from
-// the parent card via framer-motion's variant context.
+// Each line rises in, inheriting the small stagger from its parent beat.
 const lineVariants = {
-  hidden: { opacity: 0, y: 18 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
 };
 
 export default function GuestCinematic({
@@ -278,9 +269,8 @@ export default function GuestCinematic({
 }
 
 // -----------------------------------------------------------------------------
-// Reusable overlay card — a nearly-opaque ivory surface with a strong blur and
-// a soft, deep shadow so it reads as a solid card the instant it appears, even
-// over the darkest footage. Centered text; gold/ink accents on brand.
+// Reusable overlay wrapper — fully transparent so the video frame shows through.
+// Text legibility comes from the `.cine-text` glow, not a background.
 // -----------------------------------------------------------------------------
 
 function OverlayCard({
@@ -295,15 +285,8 @@ function OverlayCard({
   return (
     <div
       className={[
-        'inline-block max-w-[90vw] text-center',
-        'bg-ivory-50/95 backdrop-blur-xl',
-        'rounded-[2rem] ring-1 ring-ink/10',
-        'shadow-[0_24px_70px_-20px_rgba(42,37,32,0.4)]',
-        compact
-          ? 'px-5 py-2.5'
-          : wide
-          ? 'px-9 sm:px-14 py-8 sm:py-11'
-          : 'px-8 sm:px-12 py-8 sm:py-10',
+        'cine-text inline-block max-w-[92vw] text-center',
+        compact ? 'px-4 py-2' : wide ? 'px-8 sm:px-12 py-6' : 'px-6 sm:px-10 py-6',
       ].join(' ')}
     >
       {children}

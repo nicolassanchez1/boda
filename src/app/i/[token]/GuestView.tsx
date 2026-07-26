@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { Prisma } from '@prisma/client';
 import { confirmRsvp, releaseGift, reserveGift } from '@/actions/guest';
 import GuestCinematic from '@/components/guest/GuestCinematic';
+import BackgroundMusic from '@/components/guest/BackgroundMusic';
 
 type AttendeeData = {
   id: string;
@@ -118,6 +119,10 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
 
   return (
     <main className="min-h-screen">
+      {/* Ambient background music — floating toggle, autoplay-safe. Hides itself
+          if no track is present. */}
+      <BackgroundMusic />
+
       {/* Cinematic intro — 500vh of scroll-scrubbed frames + text overlays.
           Anchored id="rsvp-section" so the CTA can scroll the user into the form. */}
       <GuestCinematic
