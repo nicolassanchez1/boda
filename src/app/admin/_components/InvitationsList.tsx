@@ -431,7 +431,7 @@ function InvitationCard({
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
   const link = buildInvitationLink(baseUrl, invitation.token, invitation.guestName);
-  const whatsappMessage = buildWhatsappMessage(invitation.guestName, link);
+  const whatsappMessage = buildWhatsappMessage(invitation.guestName);
   const whatsappUrl = buildWhatsAppUrl(invitation.phone, whatsappMessage);
 
   // Visual priority:
