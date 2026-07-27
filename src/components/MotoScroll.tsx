@@ -29,16 +29,23 @@ export default function MotoScroll({
   const rafRef = useRef<number | null>(null);
   const latestIdxRef = useRef(0);
   const paintedIdxRef = useRef(-1);
+  // Frames we've asked the browser to decode. We only decode a small window
+  // around the current frame (not all 96) so full-HD frames don't blow up
+  // memory / crash the tab on phones. The browser LRU-evicts decoded bitmaps
+  // outside the working set on its own.
+  const decodedRef = useRef<Set<number>>(new Set());
 
   const [isReady, setIsReady] = useState(false);
   // Only used to render the (opt-in) frame counter. Not touched during scroll
   // unless the counter is actually visible.
   const [currentFrame, setCurrentFrame] = useState(0);
 
-  // ---- 1. Preload the whole sequence, pre-decoded, in order. We reveal as
-  //         soon as the first frames are ready rather than waiting for all. ----
+  // ---- 1. Load the whole sequence (encoded only — decoding happens lazily in
+  //         a window around the current frame). We reveal as soon as the first
+  //         frames arrive rather than waiting for all. ----
   useEffect(() => {
     imagesRef.current = new Map();
+    decodedRef.current = new Set();
     paintedIdxRef.current = -1;
     setIsReady(false);
 
@@ -57,16 +64,10 @@ export default function MotoScroll({
     const load = (n: number) => {
       const img = new Image();
       img.decoding = 'async';
-      const finish = () => {
+      img.onload = () => {
         if (cancelled) return;
         imagesRef.current.set(n, img);
         advance();
-      };
-      img.onload = () => {
-        // Decode off the critical path so the first draw of each frame doesn't
-        // block the main thread mid-scroll. Fall back to using it undecoded.
-        if ('decode' in img) img.decode().then(finish).catch(finish);
-        else finish();
       };
       img.onerror = () => {
         // eslint-disable-next-line no-console
@@ -192,6 +193,19 @@ export default function MotoScroll({
       paintedIdxRef.current = i;
       drawRef.current(i);
       if (showFrameCounter) setCurrentFrame(i);
+
+      // Pre-decode a small window around the current frame (skewed forward, the
+      // usual scroll direction) so the next frames are ready — without ever
+      // decoding all 96 at once. Decoded bitmaps outside the window are
+      // LRU-evicted by the browser, keeping memory bounded on phones.
+      for (let off = -1; off <= 4; off++) {
+        const n = i + 1 + off;
+        const im = imagesRef.current.get(n);
+        if (im && im.naturalWidth && 'decode' in im && !decodedRef.current.has(n)) {
+          decodedRef.current.add(n);
+          im.decode().catch(() => decodedRef.current.delete(n));
+        }
+      }
     });
   });
 
