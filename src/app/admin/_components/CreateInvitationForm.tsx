@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createInvitation } from '@/actions/admin';
 import { buildInvitationLink } from '@/lib/format';
@@ -58,7 +59,11 @@ export default function CreateInvitationForm() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="btn btn-primary">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn btn-primary btn-block sm:w-auto"
+      >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4" aria-hidden>
           <path d="M12 5 L12 19 M5 12 L19 12" />
         </svg>
@@ -172,7 +177,10 @@ function CreatedSuccess({ link, onClose }: { link: string; onClose: () => void }
 }
 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  return (
+  // Portal to <body> so the fixed overlay isn't trapped by an ancestor's
+  // transform (the hero's animate-fade-up leaves a transform, which would make
+  // `position: fixed` resolve against that small box instead of the viewport).
+  const content = (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -189,10 +197,11 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift"
+        className="modal-mobile-bottom w-full max-w-xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-lift max-h-[90dvh] overflow-y-auto"
       >
         {children}
       </motion.div>
     </motion.div>
   );
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }

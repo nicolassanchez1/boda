@@ -50,7 +50,7 @@ export default async function InvitadosPage() {
             </h1>
           </div>
 
-          <div className="flex gap-2 shrink-0 animate-fade-up [animation-delay:240ms]">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 shrink-0 animate-fade-up [animation-delay:240ms]">
             <BulkCreateForm />
             <CreateInvitationForm />
           </div>

@@ -133,7 +133,7 @@ body > * {
    *   <button class="btn btn-primary">   <a class="btn btn-secondary btn-sm">
    * ------------------------------------------------------------------------- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium leading-none text-sm;
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium leading-none text-sm whitespace-nowrap;
     @apply px-5 py-3 min-h-[44px] cursor-pointer select-none;
     @apply transition-[background-color,color,border-color,box-shadow,transform] duration-200;
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/45 focus-visible:ring-offset-2 focus-visible:ring-offset-ivory-50;

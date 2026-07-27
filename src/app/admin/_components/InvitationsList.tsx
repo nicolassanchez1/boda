@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Prisma } from '@prisma/client';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+
+// Renders children into <body> so fixed-position overlays (sheets/modals) are
+// not trapped by an ancestor's transform (framer-motion `layout`/whileHover on
+// the cards leaves a transform, which would make `position: fixed` resolve
+// against the card instead of the viewport).
+function Portal({ children }: { children: ReactNode }) {
+  return typeof document !== 'undefined' ? createPortal(children, document.body) : <>{children}</>;
+}
 import {
   deleteInvitation,
   updateInvitation,
@@ -588,6 +597,7 @@ function InvitationCard({
           big touch targets, danger styling for destructive actions. */}
       <AnimatePresence>
         {sheetOpen && (
+          <Portal>
           <div
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40"
             onClick={() => setSheetOpen(false)}
@@ -603,7 +613,7 @@ function InvitationCard({
               exit={{ y: '100%', opacity: 0, transition: { duration: 0.22 } }}
               transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full sm:max-w-md bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift overflow-hidden"
+              className="w-full sm:max-w-lg bg-ivory-50 rounded-t-3xl sm:rounded-3xl shadow-lift overflow-hidden"
             >
               {/* Handle (mobile only — visual affordance for "this is a sheet") */}
               <div className="flex justify-center pt-3 pb-1 sm:hidden">
@@ -679,13 +689,14 @@ function InvitationCard({
                 <button
                   type="button"
                   onClick={() => setSheetOpen(false)}
-                  className="cursor-pointer w-full min-h-[48px] rounded-full bg-white border border-ink/15 text-ink font-medium hover:bg-ivory-100 transition-colors"
+                  className="btn btn-secondary btn-block"
                 >
                   Cancelar
                 </button>
               </div>
             </motion.div>
           </div>
+          </Portal>
         )}
       </AnimatePresence>
 
@@ -881,6 +892,7 @@ function ConfirmModal({
   onConfirm: () => void;
 }) {
   return (
+    <Portal>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -924,6 +936,7 @@ function ConfirmModal({
         </div>
       </motion.div>
     </motion.div>
+    </Portal>
   );
 }
 
@@ -963,6 +976,7 @@ function EditInvitationModal({
   };
 
   return (
+    <Portal>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -979,12 +993,12 @@ function EditInvitationModal({
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="modal-mobile-bottom w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift max-h-[90dvh] overflow-y-auto"
+        className="modal-mobile-bottom w-full max-w-xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-lift max-h-[90dvh] overflow-y-auto"
       >
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="space-y-5">
           <header>
             <p className="eyebrow text-terracotta">Editar invitación</p>
-            <h2 className="display-xl text-3xl mt-1">{invitation.guestName}</h2>
+            <h2 className="display-xl text-2xl sm:text-3xl mt-1 truncate">{invitation.guestName}</h2>
           </header>
           <label className="block">
             <span className="text-sm text-ink-soft">Nombre</span>
@@ -992,58 +1006,58 @@ function EditInvitationModal({
               required
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+              className="mella-input mt-1"
             />
           </label>
-          <label className="block">
-            <span className="text-sm text-ink-soft">Cupos</span>
-            <input
-              required
-              type="number"
-              min={1}
-              max={99}
-              value={cupos}
-              onChange={(e) => setCupos(Number(e.target.value))}
-              className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm text-ink-soft">Teléfono</span>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
-            />
-          </label>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="text-sm text-ink-soft">Cupos</span>
+              <input
+                required
+                type="number"
+                min={1}
+                max={99}
+                value={cupos}
+                onChange={(e) => setCupos(Number(e.target.value))}
+                className="mella-input mt-1"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-ink-soft">Teléfono</span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+57 300 000 0000"
+                className="mella-input mt-1"
+              />
+            </label>
+          </div>
           <label className="block">
             <span className="text-sm text-ink-soft">Notas internas</span>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded-xl border border-ink/15 px-4 py-3"
+              className="mella-input mt-1 resize-none"
             />
           </label>
-          {error && <p className="text-sm text-terracotta-dark" role="alert">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="cursor-pointer px-4 py-2.5 rounded-full border border-ink/15 hover:bg-ivory-100 transition-colors"
-            >
+          {error && (
+            <p className="text-sm text-terracotta-dark bg-terracotta/10 border border-terracotta/20 rounded-xl px-4 py-3" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn btn-secondary">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="cursor-pointer px-5 py-2.5 rounded-full bg-terracotta text-white font-medium hover:bg-terracotta-dark transition-colors disabled:opacity-50"
-            >
-              {pending ? 'Guardando…' : 'Guardar'}
+            <button type="submit" disabled={pending} className="btn btn-primary">
+              {pending ? 'Guardando…' : 'Guardar cambios'}
             </button>
           </div>
         </form>
       </motion.div>
     </motion.div>
+    </Portal>
   );
 }
 

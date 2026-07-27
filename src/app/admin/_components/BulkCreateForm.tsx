@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { bulkCreateInvitations } from '@/actions/admin';
 import { buildInvitationLink } from '@/lib/format';
@@ -45,7 +46,11 @@ export default function BulkCreateForm() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="btn btn-secondary">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn btn-secondary btn-block sm:w-auto"
+      >
         Crear varias
       </button>
 
@@ -142,7 +147,10 @@ function BulkResult({ result, onClose }: { result: Result; onClose: () => void }
 }
 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  return (
+  // Portal to <body> so the fixed overlay isn't trapped by the hero's transform
+  // (animate-fade-up) — otherwise `position: fixed` resolves against that small
+  // box instead of the viewport.
+  const content = (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -159,10 +167,11 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
         exit={{ y: 24, opacity: 0 }}
         transition={{ duration: 0.25 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-ivory-50 rounded-3xl p-6 shadow-lift"
+        className="modal-mobile-bottom w-full max-w-xl bg-ivory-50 rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-lift max-h-[90dvh] overflow-y-auto"
       >
         {children}
       </motion.div>
     </motion.div>
   );
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }
