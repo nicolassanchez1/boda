@@ -17,7 +17,6 @@ import { Prisma } from '@prisma/client';
 import { confirmRsvp, releaseGift, reserveGift } from '@/actions/guest';
 import GuestCinematic from '@/components/guest/GuestCinematic';
 import BackgroundMusic from '@/components/guest/BackgroundMusic';
-import MenuShowcase from '@/components/guest/MenuShowcase';
 
 type AttendeeData = {
   id: string;
@@ -203,13 +202,6 @@ export default function GuestView({ invitation, menu, gifts, weddingInfo, isRead
           )}
         </AnimatePresence>
       </section>
-
-      {/* Nuestro menú — visual showcase of the catering, shown to every guest. */}
-      <MenuShowcase
-        mains={menu.mainDishes}
-        sides={menu.sides}
-        drinks={menu.drinks}
-      />
 
       <AnimatePresence>
         {confirmingDecline && (
@@ -483,19 +475,29 @@ function FoodStep({
           <p className="text-ink-muted italic">No completaste la elección de comida.</p>
         ) : (
           <ul className="space-y-3">
-            {invitation.attendees.map((a) => (
-              <li key={a.id} className="bg-white rounded-2xl shadow-soft p-4">
-                <p className="font-display text-lg">{a.name}</p>
-                <p className="text-sm text-ink-muted">
-                  {dishName(menu.mainDishes, a.mainDishId) ?? 'Sin plato'}
-                  {' · '}
-                  {dishName(menu.drinks, a.drinkId) ?? 'Sin bebida'}
-                </p>
-                {a.dietaryNotes && (
-                  <p className="text-xs text-ink-muted italic mt-1">"{a.dietaryNotes}"</p>
-                )}
-              </li>
-            ))}
+            {invitation.attendees.map((a) => {
+              const main = findDish(menu.mainDishes, a.mainDishId);
+              const drink = findDish(menu.drinks, a.drinkId);
+              return (
+                <li key={a.id} className="bg-white rounded-2xl shadow-soft p-4 flex items-start gap-3">
+                  {main?.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={main.imageUrl} alt={main.name} loading="lazy" className="w-16 h-16 rounded-xl object-cover shrink-0 bg-ivory-100" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-display text-lg leading-tight">{a.name}</p>
+                    <p className="text-sm text-ink-muted mt-0.5">
+                      {main?.name ?? 'Sin plato'}
+                      {' · '}
+                      {drink?.name ?? 'Sin bebida'}
+                    </p>
+                    {a.dietaryNotes && (
+                      <p className="text-xs text-ink-muted italic mt-1">"{a.dietaryNotes}"</p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -505,9 +507,11 @@ function FoodStep({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <p className="display-italic text-2xl text-ink">¡Qué alegría!</p>
+        <p className="eyebrow text-terracotta">A la mesa</p>
+        <p className="display-italic text-2xl text-ink mt-1">Nuestro menú</p>
         <p className="text-sm text-ink-muted mt-2">
-          Elige cuántos de tus {invitation.cupos} {invitation.cupos === 1 ? 'cupo' : 'cupos'} vienen, y llena los datos de cada uno.
+          ¡Qué alegría! Elige cuántos de tus {invitation.cupos}{' '}
+          {invitation.cupos === 1 ? 'cupo' : 'cupos'} vienen y el plato y la bebida de cada uno.
         </p>
       </div>
 
@@ -549,6 +553,8 @@ function FoodStep({
           />
         ))}
       </div>
+
+      <BuffetSides sides={menu.sides} />
 
       {error && (
         <p className="text-sm text-terracotta-dark text-center" role="alert">
@@ -593,52 +599,33 @@ function AttendeeEditor({
     <div className="bg-white rounded-2xl shadow-soft p-5">
       <p className="eyebrow text-terracotta mb-3">Persona {index}</p>
 
-      <label className="block mb-3">
+      <label className="block mb-5">
         <span className="text-sm text-ink-soft">Nombre completo</span>
         <input
           type="text"
           value={attendee.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="Como figura en tu invitación"
-          className="mt-1 w-full rounded-xl border border-ink/15 bg-ivory-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+          className="mella-input mt-1"
         />
       </label>
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <label className="block">
-          <span className="text-sm text-ink-soft">Plato principal</span>
-          <select
-            value={attendee.mainDishId ?? ''}
-            onChange={(e) => onChange({ mainDishId: e.target.value || null })}
-            className="mt-1 w-full rounded-xl border border-ink/15 bg-ivory-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-terracotta/40"
-          >
-            <option value="">— Elige un plato —</option>
-            {menu.mainDishes.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="text-sm text-ink-soft">Bebida</span>
-          <select
-            value={attendee.drinkId ?? ''}
-            onChange={(e) => onChange({ drinkId: e.target.value || null })}
-            className="mt-1 w-full rounded-xl border border-ink/15 bg-ivory-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-terracotta/40"
-          >
-            <option value="">— Elige una bebida —</option>
-            {menu.drinks.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="space-y-5">
+        <ChoiceGrid
+          label="Elige tu plato principal"
+          items={menu.mainDishes}
+          selectedId={attendee.mainDishId}
+          onSelect={(id) => onChange({ mainDishId: id })}
+        />
+        <ChoiceGrid
+          label="Elige tu bebida"
+          items={menu.drinks}
+          selectedId={attendee.drinkId}
+          onSelect={(id) => onChange({ drinkId: id })}
+        />
       </div>
 
-      <label className="block mt-3">
+      <label className="block mt-5">
         <span className="text-sm text-ink-soft">
           Notas dietéticas <span className="text-ink-muted/70 text-xs">opcional</span>
         </span>
@@ -648,9 +635,115 @@ function AttendeeEditor({
           onChange={(e) => onChange({ dietaryNotes: e.target.value || null })}
           placeholder="Alergias, vegetariano, etc."
           maxLength={500}
-          className="mt-1 w-full rounded-xl border border-ink/15 bg-ivory-50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+          className="mella-input mt-1"
         />
       </label>
+    </div>
+  );
+}
+
+// Selectable menu-item cards with photos — replaces the old <select> dropdowns
+// so the guest picks their dish/drink by looking at it.
+function ChoiceGrid({
+  label,
+  items,
+  selectedId,
+  onSelect,
+}: {
+  label: string;
+  items: MenuItemData[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <span className="text-sm text-ink-soft">{label}</span>
+      <div className="grid grid-cols-2 gap-2.5 mt-2">
+        {items.map((it) => {
+          const selected = selectedId === it.id;
+          return (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => onSelect(it.id)}
+              aria-pressed={selected}
+              className={[
+                'cursor-pointer relative text-left rounded-2xl overflow-hidden bg-white border-2 transition-all duration-200 active:scale-[0.98]',
+                selected
+                  ? 'border-terracotta shadow-lift'
+                  : 'border-ink/10 shadow-soft hover:border-ink/25',
+              ].join(' ')}
+            >
+              <div className="relative aspect-[4/3] bg-ivory-100 overflow-hidden">
+                {it.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={it.imageUrl}
+                    alt={it.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <PlateIcon />
+                  </div>
+                )}
+                {selected && (
+                  <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-terracotta text-white flex items-center justify-center shadow-lift">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5" aria-hidden>
+                      <path d="M5 12 L10 17 L19 7" />
+                    </svg>
+                  </span>
+                )}
+              </div>
+              <p
+                className={[
+                  'px-3 py-2 text-xs leading-tight',
+                  selected ? 'font-semibold text-ink' : 'font-medium text-ink-soft',
+                ].join(' ')}
+              >
+                {it.name}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PlateIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" className="w-9 h-9 text-ink/20" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="4.5" />
+    </svg>
+  );
+}
+
+// Buffet sides — served to everyone (not chosen). A small visual strip.
+function BuffetSides({ sides }: { sides: MenuItemData[] }) {
+  if (sides.length === 0) return null;
+  return (
+    <div className="bg-ivory-100/60 rounded-2xl p-4">
+      <p className="eyebrow text-terracotta">Para compartir</p>
+      <p className="text-xs text-ink-muted mt-1 mb-3">
+        Acompañamientos que van a la mesa para todos.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {sides.map((s) => (
+          <div key={s.id} className="rounded-xl overflow-hidden bg-white shadow-soft">
+            <div className="aspect-[4/3] bg-ivory-100 overflow-hidden">
+              {s.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={s.imageUrl} alt={s.name} loading="lazy" className="w-full h-full object-cover" />
+              )}
+            </div>
+            <p className="px-2 py-1.5 text-[0.7rem] leading-tight text-ink-soft">{s.name}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1084,9 +1177,9 @@ function resizeAttendees(prev: AttendeeData[], next: number): AttendeeData[] {
   }))];
 }
 
-function dishName(items: MenuItemData[], id: string | null): string | null {
+function findDish(items: MenuItemData[], id: string | null): MenuItemData | null {
   if (!id) return null;
-  return items.find((i) => i.id === id)?.name ?? null;
+  return items.find((i) => i.id === id) ?? null;
 }
 
 function messageFor(code: string): string {

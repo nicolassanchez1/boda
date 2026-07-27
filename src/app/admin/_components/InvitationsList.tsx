@@ -1061,14 +1061,13 @@ function EditInvitationModal({
   );
 }
 
-function buildWhatsappMessage(guestName: string, link: string): string {
+function buildWhatsappMessage(link: string): string {
   return (
-    `¡Hola, ${guestName}! 💛\n\n` +
-    `Somos ${process.env.NEXT_PUBLIC_COUPLE_NAME ?? 'los novios'}. ` +
-    `Queremos compartir contigo todos los detalles de nuestra boda. ` +
-    `Entra a tu invitación personal aquí:\n\n${link}\n\n` +
-    `Ahí podrás confirmar cuántos vienen y elegir plato y bebida. ` +
-    `¡Gracias por acompañarnos!`
+    `✨ ¡La celebración comienza antes de tiempo! 🥂\n\n` +
+    `Queremos empezar a compartir nuestra felicidad rodeados de las personas más especiales. ` +
+    `Por eso, nos encantaría invitarte a una comida íntima antes de nuestro gran día.\n\n` +
+    `🌿 Conoce todos los detalles del encuentro aquí:\n\n` +
+    `${link}`
   );
 }
 

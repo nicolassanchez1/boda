@@ -1,6 +1,7 @@
 // Server component — resolves the token, stamps firstOpenedAt once,
 // fetches the data the guest needs, then hands off to the client view.
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { isPastDeadline } from '@/lib/rsvp';
@@ -9,6 +10,29 @@ import GuestView from './GuestView';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+// Open Graph / link preview — what WhatsApp shows when the invitation link is
+// shared: the plantilla image (as a card) + a warm title/description. Generic on
+// purpose (no guest name) so the preview is the same for everyone. The image is
+// public (public/plantilla/og.jpg) even though the page itself stays noindex.
+export function generateMetadata(): Metadata {
+  const couple = process.env.NEXT_PUBLIC_COUPLE_NAME;
+  const title = couple ? `${couple} · Nuestra invitación` : 'Nuestra invitación ✨';
+  const description =
+    'Una comida íntima antes de nuestro gran día. Toca para ver todos los detalles 🌿';
+  const image = {
+    url: '/plantilla/og.jpg',
+    width: 1000,
+    height: 2303,
+    alt: 'Invitación',
+  };
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: 'website', images: [image] },
+    twitter: { card: 'summary_large_image', title, description, images: [image.url] },
+  };
+}
 
 // The URL slug is `nombre-del-invitado-TOKEN`; only the token authenticates.
 export default async function InvitationPage({ params }: { params: { slug: string } }) {

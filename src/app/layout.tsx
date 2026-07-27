@@ -18,6 +18,9 @@ const sans = Inter({
 });
 
 export const metadata: Metadata = {
+  // Lets relative Open Graph image paths (e.g. /plantilla/og.jpg) resolve to
+  // absolute URLs — required for WhatsApp/social link previews to load the image.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
   title: 'Nuestra boda',
   description: 'Tu invitación a nuestra boda.',
   robots: { index: false, follow: false }, // private guest list — never indexed.
