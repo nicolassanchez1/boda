@@ -211,8 +211,10 @@ export default function MotoScroll({
 
   return (
     <div ref={containerRef} className="relative h-[500svh] bg-ivory-50">
-      {/* Sticky stage — ivory ground so any margin/gap stays on-palette. */}
-      <div className="sticky top-0 h-[100svh] w-full overflow-hidden bg-ivory-50">
+      {/* Sticky stage — full-cover. Uses lvh (large viewport height) so it
+          fills the screen even when the mobile browser bar retracts; svh would
+          leave a gap at the bottom on scroll. */}
+      <div className="sticky top-0 h-[100lvh] w-full overflow-hidden bg-ivory-50">
         <canvas
           ref={canvasRef}
           className={`h-full w-full transition-opacity duration-700 ${

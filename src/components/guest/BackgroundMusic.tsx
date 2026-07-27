@@ -78,20 +78,30 @@ export default function BackgroundMusic({
     a.addEventListener('loadedmetadata', onReady);
     a.addEventListener('error', onError);
 
+    // Browsers block autoplay-on-load, so we start the music on the guest's
+    // FIRST interaction (tap / touch-to-scroll / key) — that gesture unlocks
+    // audio. We only skip this if they've explicitly muted it before.
     let cleanupGesture: (() => void) | undefined;
-    if (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) === 'on') {
-      setEnabled(true);
-      setHintVisible(false);
-      // Autoplay is blocked, so arm a one-shot listener: the guest's first
-      // gesture (tap/key) resumes their chosen music.
+    const explicitlyOff =
+      typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) === 'off';
+    if (typeof window !== 'undefined' && !explicitlyOff) {
       const start = () => {
+        setEnabled(true);
+        setHintVisible(false);
+        try {
+          localStorage.setItem(STORAGE_KEY, 'on');
+        } catch {
+          /* private mode — ignore */
+        }
         void play();
         cleanupGesture?.();
       };
       window.addEventListener('pointerdown', start, { once: true });
+      window.addEventListener('touchstart', start, { once: true });
       window.addEventListener('keydown', start, { once: true });
       cleanupGesture = () => {
         window.removeEventListener('pointerdown', start);
+        window.removeEventListener('touchstart', start);
         window.removeEventListener('keydown', start);
       };
     }

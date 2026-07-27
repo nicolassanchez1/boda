@@ -117,10 +117,6 @@ export default function GuestCinematic({
     ['rgba(253,251,247,0)', 'rgba(253,251,247,1)'],
   );
 
-  // Side progress rail (right edge) — terracotta dot growing.
-  const railVisible = useTransform(scrollYProgress, [0, 0.02, 0.98, 1], [0, 1, 1, 0]);
-  const railHeight = useTransform(scrollYProgress, [0.02, 0.98], ['0%', '100%']);
-
   // Scroll hint fades out once the user starts scrolling.
   const scrollHintOpacity = useTransform(scrollYProgress, [0, 0.03, 0.08], [1, 1, 0]);
 
@@ -239,47 +235,28 @@ export default function GuestCinematic({
         </AnimatePresence>
       </div>
 
-      {/* Side progress rail + scroll hint — also fixed, so they're gated on the
-          cinematic being in view (same reason as the beats above). */}
+      {/* Scroll hint — fixed, gated on the cinematic being in view. */}
       {cinematicActive && (
-        <>
-          <motion.div
-            style={{ opacity: railVisible }}
-            className="fixed right-4 sm:right-6 top-[12dvh] bottom-[14dvh] w-px z-30 pointer-events-none"
-            aria-hidden
+        <motion.div
+          style={{ opacity: scrollHintOpacity }}
+          className="cine-text fixed bottom-[4dvh] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none"
+          aria-hidden
+        >
+          <span className="smallcaps text-ink-soft">Desliza para descubrir</span>
+          <motion.svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-6 h-6 text-terracotta"
+            animate={{ y: [0, 7, 0], opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <div className="absolute inset-0 bg-terracotta/20" />
-            <motion.div
-              style={{ height: railHeight }}
-              className="absolute inset-x-0 top-0 bg-terracotta origin-top"
-            />
-            <motion.div
-              style={{ top: railHeight }}
-              className="absolute -left-[3px] -translate-y-1/2 w-2 h-2 rounded-full bg-terracotta shadow-[0_0_12px_rgba(184,92,56,0.7)]"
-            />
-          </motion.div>
-
-          <motion.div
-            style={{ opacity: scrollHintOpacity }}
-            className="cine-text fixed bottom-[4dvh] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none"
-            aria-hidden
-          >
-            <span className="smallcaps text-ink-soft">Desliza para descubrir</span>
-            <motion.svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-6 h-6 text-terracotta"
-              animate={{ y: [0, 7, 0], opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <path d="M12 4 L12 18 M6 13 L12 19 L18 13" />
-            </motion.svg>
-          </motion.div>
-        </>
+            <path d="M12 4 L12 18 M6 13 L12 19 L18 13" />
+          </motion.svg>
+        </motion.div>
       )}
     </div>
   );
